@@ -90,6 +90,8 @@ class Polynomial:
 
     def __eq__(self, other):
         if type(other) is Polynomial:
+            if len(self._coeff) != len(other._coeff):
+                return False
             zip(self._coeff, other._coeff)
             for i, j in zip(self._coeff, other._coeff):
                 if i != j:
@@ -120,13 +122,6 @@ class Polynomial:
 
 # ========================================================================================================#
 if __name__ == "__main__":
-    #str = 'X%' % 2
-    #print(str)
-    #a = 12654
-    #b = map(int, str(a))
-    #for i in b:
-    #    print(i)
-    #p = Polynomial()
     X = Polynomial((0,-1))
     A = Polynomial((1,2.34,-1,0))
     A1 = Polynomial((1.32, 2.34, -5.67, -1, 99, 102, 44, 4.3, 5.5, 66, 101, 103))
