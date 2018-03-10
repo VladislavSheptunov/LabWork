@@ -1,12 +1,13 @@
 from numpy.polynomial import Polynomial
+import re
 
 def GetMonom(it, _coeff, code):
     str_tmp = str()
     if it == 0:
         if _coeff[it] < 0:
-            str_tmp = ' - ' + str(abs(_coeff[it]))
+            str_tmp = ' - ' + str(abs(round(_coeff[it], 2)))
         elif _coeff[it] > 0:
-            str_tmp = ' + ' + str(abs(_coeff[it]))
+            str_tmp = ' + ' + str(abs(round(_coeff[it], 2)))
         else:
             return "continue"
     if it == 1:
@@ -14,12 +15,12 @@ def GetMonom(it, _coeff, code):
             if abs(_coeff[it]) == 1:
                 str_tmp = ' - ' + 'x'
             else:
-                str_tmp = ' - ' + str(abs(_coeff[it])) + 'x'
+                str_tmp = ' - ' + str(abs(round(_coeff[it], 2))) + 'x'
         elif _coeff[it] > 0:
             if abs(_coeff[it]) == 1:
                 str_tmp = ' + ' + 'x'
             else:
-                str_tmp = ' + ' + str(abs(_coeff[it])) + 'x'
+                str_tmp = ' + ' + str(abs(round(_coeff[it], 2))) + 'x'
         else:
             return "continue"
     if it > 1:
@@ -27,12 +28,12 @@ def GetMonom(it, _coeff, code):
             if abs(_coeff[it]) == 1:
                 str_tmp += ' - ' + 'x'
             else:
-                str_tmp += ' - ' + str(abs(_coeff[it])) + 'x'
+                str_tmp += ' - ' + str(abs(round(_coeff[it], 2))) + 'x'
         elif _coeff[it] > 0:
             if abs(_coeff[it]) == 1:
                 str_tmp += ' + ' + 'x'
             else:
-                str_tmp += ' + ' + str(abs(_coeff[it])) + 'x'
+                str_tmp += ' + ' + str(abs(round(_coeff[it], 2))) + 'x'
         else:
             return "continue"
         tmp = map(int, str(it))
@@ -47,6 +48,8 @@ def EditSeniorMonom(arg):
     if arg[0] == '+':
         arg.pop(0)
         arg.pop(0)
+    else:
+        arg.pop(1)
     for it in arg:
         ret_str += str(it)
     return ret_str
@@ -57,6 +60,19 @@ def GetPolinomial(list_monom):
         ret_str += str(list_monom[it])
     return ret_str
 
+def isint(s):
+    try:
+        int(s)
+        return True
+    except ValueError:
+        return False
+
+def isfloat(s):
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
 
 class Polynomial:
     code = {'0': chr(8304), '1': chr(185), '2': chr(178),
@@ -68,69 +84,151 @@ class Polynomial:
         self._coeff = list()
         self.__checkValue(coeff)
         self.__addValue(coeff)
-        self._coeff = tuple(self._coeff)
 
     def __repr__(self):
        if len(self._coeff) == 1:
-            return 'Polynom({})'.format(self._coeff[0])
+            return 'Polynomial({})'.format(self._coeff[0])
        else:
-            return 'Polynom({})'.format(self._coeff)
+           tmp_list = self._coeff
+           for it in reversed(tmp_list):
+               if it == 0:
+                   tmp_list.remove(it)
+               else:
+                   break
+           return 'Polynomial({})'.format(tuple(tmp_list))
 
     def __str__(self):
         list_monom = list()
-        for it in range(0, len(self._coeff), 1):
-            tmp_str = GetMonom(it,self._coeff,self.code)
-            if tmp_str == "continue":
-                continue
-            else:
-                list_monom.append(tmp_str)
-        list_monom.reverse()
-        list_monom[0] = EditSeniorMonom(list(list_monom[0]))
+        len_poly = len(self._coeff)
+        if len_poly > 1 and len_poly - self._coeff.count(0) != 0:
+            for it in range(0, len_poly, 1):
+                tmp_str = GetMonom(it, self._coeff, self.code)
+                if tmp_str == "continue":
+                    continue
+                else:
+                    list_monom.append(tmp_str)
+            list_monom.reverse()
+            list_monom[0] = EditSeniorMonom(list(list_monom[0]))
+        else:
+            list_monom.append(0)
         return GetPolinomial(list_monom)
 
     def __eq__(self, other):
-        if type(other) is Polynomial:
-            if len(self._coeff) != len(other._coeff):
+        other = Polynomial(other)
+        if len(self._coeff) != len(other._coeff):
+            return False
+        zip(self._coeff, other._coeff)
+        for i, j in zip(self._coeff, other._coeff):
+            if i != j:
                 return False
-            zip(self._coeff, other._coeff)
-            for i, j in zip(self._coeff, other._coeff):
-                if i != j:
-                    return False
+        return True
+
+    def __ne__(self, other):
+        other = Polynomial(other)
+        if self.__eq__(other) == False:
+            return True;
+        else:
+            return False;
+
+    def __neg__(self):
+        resPolynomial = Polynomial(self._coeff)
+        for it in range(0, len(resPolynomial._coeff),1):
+            resPolynomial._coeff[it] *= -1
+        return resPolynomial
+
+    def __pos__(self):
+        resPolynomial = Polynomial(self._coeff)
+        for it in range(0, len(resPolynomial._coeff),1):
+            resPolynomial._coeff[it] = abs(resPolynomial._coeff[it])
+        return resPolynomial
+
+    def __bool__(self):
+        if len(self._coeff) == 1 and self._coeff[0] == 0:
+            return False
+        else:
             return True
+
+    def __iadd__(self, other):
+        other = Polynomial(other)
+        len_poly = len(other._coeff)
+        if len(self._coeff) <= len_poly:
+            for it in range(len(self._coeff),len(self._coeff) + (len_poly - len(self._coeff)), 1):
+                self._coeff.append(0)
+        for it in range(0,len_poly,1):
+            self._coeff[it] += other._coeff[it]
+            tmp = self._coeff[it]
+            if tmp - self._coeff[it] == 0:
+                int(self._coeff[it])
+        return self
+
+    def __add__(self, other):
+        other = Polynomial(other)
+        resPolynomial = Polynomial(self._coeff)
+        resPolynomial += other
+        return resPolynomial
+
+    def __radd__(self, other):
+        other = Polynomial(other)
+        resPolynomial = Polynomial(self._coeff)
+        other += resPolynomial
+        return other
+
+    def __isub__(self, other):
+        other = Polynomial(other)
+        len_poly = len(other._coeff)
+        if len(self._coeff) <= len_poly:
+            for it in range(len(self._coeff),len(self._coeff) + (len_poly - len(self._coeff)), 1):
+                self._coeff.append(0)
+        for it in range(0,len_poly,1):
+            self._coeff[it] -= other._coeff[it]
+        return self
+
+    def __sub__(self, other):
+        other = Polynomial(other)
+        resPolynomial = Polynomial(self._coeff)
+        resPolynomial -= other
+        return resPolynomial
+
+    def __rsub__(self, other):
+        other = Polynomial(other)
+        resPolynomial = Polynomial(self._coeff)
+        other -= resPolynomial
+        return other
 
     def __addValue(self, coeff):
         if (type(coeff) is int) or (type(coeff) is float):
             self._coeff.append(coeff)
         elif type(coeff) is Polynomial:
             self._coeff = coeff._coeff
+        elif type(coeff) is str:
+            tmp_str = re.sub('[\,]', '', coeff).split(' ')
+            for it in range(0,len(tmp_str),1):
+                if isint(tmp_str[it]):
+                    self._coeff.append(int(tmp_str[it]))
+                elif isfloat(tmp_str[it]):
+                    self._coeff.append(float(tmp_str[it]))
         else:
             self._coeff = list(coeff)
-        for it in reversed(self._coeff):
-            if it == 0:
-                self._coeff.remove(it)
-            else:
-                break
 
     def __checkValue(self, coeff):
-        #assert (type(coeff) == int)
         if type(coeff) is str:
-            raise ValueError("Invalid initialization list! Type Str")
-        if type(coeff) is list:
+            if len(coeff) == 1 and isfloat(coeff[0]) == False:
+                raise ValueError("Invalid initialization list! Not a number!")
+            if (len(coeff) > 1):
+                tmp_checkList = re.sub('[\,]', '', coeff).split(' ')
+                for it in tmp_checkList:
+                    if isfloat(it) == False:
+                        raise ValueError("Invalid initialization list! Not a number!")
+        if (type(coeff) is list) or (type(coeff) is tuple):
             for it in coeff:
                 if (type(it) is not int) and (type(it) is not float):
                     raise ValueError("Error! Invalid type in initialization list")
 
+    def __del__(self):
+        del self._coeff
+
 # ========================================================================================================#
 if __name__ == "__main__":
-    X = Polynomial((0,-1))
-    A = Polynomial((1,2.34,-1,0))
-    A1 = Polynomial((1.32, 2.34, -5.67, -1, 99, 102, 44, 4.3, 5.5, 66, 101, 103))
-    print(X)
-    print(A)
-    print(A1)
-    #print(A1 == A)
-    #print('x'+chr(185))
-    # На этом упадет!
-    #print(repr(Polynom('1')))
-    #print(repr(Polynom('1 2 3')))
-    #print(repr(Polynom('1 2.34 5.67 0')))
+    t_P = Polynomial((1.23, 2.34, 0, -5))
+    t_P += (0, 77, 0, 2)
+    print(t_P)
