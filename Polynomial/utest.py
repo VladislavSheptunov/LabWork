@@ -1,5 +1,5 @@
 import unittest
-import polynom as pm
+import polynomial as pm
 
 
 class TestClassPolynomial(unittest.TestCase):

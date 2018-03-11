@@ -1,4 +1,3 @@
-from numpy.polynomial import Polynomial
 import re
 
 def RemoveFraction(monom, number_monom):
