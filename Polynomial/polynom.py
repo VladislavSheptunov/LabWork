@@ -1,45 +1,60 @@
 from numpy.polynomial import Polynomial
 import re
 
-def GetMonom(it, _coeff, code):
-    str_tmp = str()
-    if it == 0:
-        if _coeff[it] < 0:
-            str_tmp = ' - ' + str(abs(round(_coeff[it], 2)))
-        elif _coeff[it] > 0:
-            str_tmp = ' + ' + str(abs(round(_coeff[it], 2)))
+def RemoveFraction(monom, number_monom):
+    if number_monom == 0:
+        pattern = re.compile('\d\.0\d')
+        result = pattern.findall(monom)
+        if not result:
+            regex = '\.0'
+            str = re.sub(regex, '', monom)
         else:
-            return "continue"
-    if it == 1:
-        if _coeff[it] < 0:
-            if abs(_coeff[it]) == 1:
-                str_tmp = ' - ' + 'x'
-            else:
-                str_tmp = ' - ' + str(abs(round(_coeff[it], 2))) + 'x'
-        elif _coeff[it] > 0:
-            if abs(_coeff[it]) == 1:
-                str_tmp = ' + ' + 'x'
-            else:
-                str_tmp = ' + ' + str(abs(round(_coeff[it], 2))) + 'x'
+            str = monom
+    else:
+        pattern = re.compile('\d.0x')
+        result = pattern.findall(monom)
+        if result:
+            regex = '\.0'
+            str = re.sub(regex, '', monom)
         else:
-            return "continue"
-    if it > 1:
-        if _coeff[it] < 0:
-            if abs(_coeff[it]) == 1:
-                str_tmp += ' - ' + 'x'
-            else:
-                str_tmp += ' - ' + str(abs(round(_coeff[it], 2))) + 'x'
-        elif _coeff[it] > 0:
-            if abs(_coeff[it]) == 1:
-                str_tmp += ' + ' + 'x'
-            else:
-                str_tmp += ' + ' + str(abs(round(_coeff[it], 2))) + 'x'
+            str = monom
+    return str
+
+def FormMonom(coeff, frac):
+    if coeff < 0:
+        if abs(coeff) == 1:
+            str_tmp = ' - ' + 'x'
         else:
-            return "continue"
-        tmp = map(int, str(it))
+            str_tmp = ' - ' + str(abs(round(coeff, frac))) + 'x'
+    elif coeff > 0:
+        if abs(coeff) == 1:
+            str_tmp = ' + ' + 'x'
+        else:
+            str_tmp = ' + ' + str(abs(round(coeff, frac))) + 'x'
+    else:
+        str_tmp = "empty"
+    return str_tmp
+
+def GetMonom(monom_number, coeff, code, frac):
+    if monom_number == 0:
+        if coeff < 0:
+            str_tmp = ' - ' + str(abs(round(coeff, frac)))
+        elif coeff > 0:
+            str_tmp = ' + ' + str(abs(round(coeff, frac)))
+        else:
+            str_tmp = "empty"
+    if monom_number == 1:
+        str_tmp = FormMonom(coeff, frac)
+    if monom_number > 1:
+        str_tmp = FormMonom(coeff, frac)
+        if str_tmp == "empty":
+            return "empty"
+        tmp = map(int, str(monom_number))
         for jt in tmp:
             str_tmp += str(code[str(jt)])
         del tmp
+    if str_tmp != "empty":
+        str_tmp = RemoveFraction(str_tmp, monom_number)
     return str_tmp
 
 def EditSeniorMonom(arg):
@@ -60,19 +75,18 @@ def GetPolinomial(list_monom):
         ret_str += str(list_monom[it])
     return ret_str
 
-def isint(s):
-    try:
-        int(s)
-        return True
-    except ValueError:
-        return False
-
-def isfloat(s):
+def IsFloat(s):
     try:
         float(s)
         return True
     except ValueError:
         return False
+
+def ToFloat(coeff):
+    tmp = []
+    for it in coeff:
+        tmp.append(float(it))
+    return tmp
 
 class Polynomial:
     code = {'0': chr(8304), '1': chr(185), '2': chr(178),
@@ -101,12 +115,12 @@ class Polynomial:
         list_monom = list()
         len_poly = len(self._coeff)
         if len_poly > 1 and len_poly - self._coeff.count(0) != 0:
-            for it in range(0, len_poly, 1):
-                tmp_str = GetMonom(it, self._coeff, self.code)
-                if tmp_str == "continue":
-                    continue
-                else:
+            for monom_number in range(0, len_poly, 1):
+                tmp_str = GetMonom(monom_number, self._coeff[monom_number], self.code, 3)
+                if tmp_str != "empty":
                     list_monom.append(tmp_str)
+                else:
+                    continue
             list_monom.reverse()
             list_monom[0] = EditSeniorMonom(list(list_monom[0]))
         else:
@@ -195,29 +209,52 @@ class Polynomial:
         other -= resPolynomial
         return other
 
+    def __imul__(self, other):
+        other = Polynomial(other)
+        len_poly = len(self._coeff) + len(other._coeff)
+        resPolynomial = Polynomial([0 for i in range(len_poly)])
+        for i in range(0, len(self._coeff), 1):
+            for j in range(0, len(other._coeff), 1):
+                resPolynomial._coeff[i + j] += self._coeff[i] * other._coeff[j]
+        self._coeff = []
+        for it in resPolynomial._coeff:
+            self._coeff.append(it)
+        return self
+
+
+    def __mul__(self, other):
+        other = Polynomial(other)
+        resPolynomial = Polynomial(self._coeff)
+        resPolynomial *= other
+        return resPolynomial
+
+    def __rmul__(self, other):
+        other = Polynomial(other)
+        resPolynomial = Polynomial(self._coeff)
+        other *= resPolynomial
+        return other
+
     def __addValue(self, coeff):
         if (type(coeff) is int) or (type(coeff) is float):
-            self._coeff.append(coeff)
+            self._coeff.append(float(coeff))
         elif type(coeff) is Polynomial:
-            self._coeff = coeff._coeff
+            self._coeff = ToFloat(coeff._coeff)
         elif type(coeff) is str:
             tmp_str = re.sub('[\,]', '', coeff).split(' ')
             for it in range(0,len(tmp_str),1):
-                if isint(tmp_str[it]):
-                    self._coeff.append(int(tmp_str[it]))
-                elif isfloat(tmp_str[it]):
+                if IsFloat(tmp_str[it]):
                     self._coeff.append(float(tmp_str[it]))
         else:
-            self._coeff = list(coeff)
+            self._coeff = ToFloat(list(coeff))
 
     def __checkValue(self, coeff):
         if type(coeff) is str:
-            if len(coeff) == 1 and isfloat(coeff[0]) == False:
+            if len(coeff) == 1 and IsFloat(coeff[0]) == False:
                 raise ValueError("Invalid initialization list! Not a number!")
             if (len(coeff) > 1):
                 tmp_checkList = re.sub('[\,]', '', coeff).split(' ')
                 for it in tmp_checkList:
-                    if isfloat(it) == False:
+                    if IsFloat(it) == False:
                         raise ValueError("Invalid initialization list! Not a number!")
         if (type(coeff) is list) or (type(coeff) is tuple):
             for it in coeff:
@@ -227,8 +264,6 @@ class Polynomial:
     def __del__(self):
         del self._coeff
 
-# ========================================================================================================#
+
 if __name__ == "__main__":
-    t_P = Polynomial((1.23, 2.34, 0, -5))
-    t_P += (0, 77, 0, 2)
-    print(t_P)
+    print("For manual testing")
