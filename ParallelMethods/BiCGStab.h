@@ -1,0 +1,8 @@
+//
+// Created by Vladislav on 24.04.2018.
+//
+
+#ifndef PARALLELMETHODS_BICGSTAB_H
+#define PARALLELMETHODS_BICGSTAB_H
+
+#endif //PARALLELMETHODS_BICGSTAB_H
