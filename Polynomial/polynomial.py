@@ -1,95 +1,7 @@
 import re
 
-def RemoveFraction(monom, number_monom):
-    if number_monom == 0:
-        pattern = re.compile('\d\.0\d')
-        result = pattern.findall(monom)
-        if not result:
-            regex = '\.0'
-            str = re.sub(regex, '', monom)
-        else:
-            str = monom
-    else:
-        pattern = re.compile('\d.0x')
-        result = pattern.findall(monom)
-        if result:
-            regex = '\.0'
-            str = re.sub(regex, '', monom)
-        else:
-            str = monom
-    return str
-
-def SetItem(_coeffs, frac, sig):
-    if abs(_coeffs) == 1:
-        return sig + 'x'
-    else:
-        return sig + str(abs(round(_coeffs, frac))) + 'x'
-
-def FormMonom(_coeffs, frac):
-    if _coeffs < 0:
-        return SetItem(_coeffs, frac, '-')
-    elif _coeffs > 0:
-        return SetItem(_coeffs, frac, '+')
-    else:
-        str_tmp = "empty"
-    return str_tmp
-
-def GetMonom(monom_number, coeff, code, frac):
-    if monom_number == 0:
-        if coeff < 0:
-            str_tmp = '-' + str(abs(round(coeff, frac)))
-        elif coeff > 0:
-            str_tmp = '+' + str(abs(round(coeff, frac)))
-        else:
-            str_tmp = "empty"
-    if monom_number == 1:
-        str_tmp = FormMonom(coeff, frac)
-    if monom_number > 1:
-        str_tmp = FormMonom(coeff, frac)
-        if str_tmp == "empty":
-            return "empty"
-        tmp = map(int, str(monom_number))
-        for jt in tmp:
-            str_tmp += str(code[str(jt)])
-        del tmp
-    if str_tmp != "empty":
-        str_tmp = RemoveFraction(str_tmp, monom_number)
-    return str_tmp
-
-def EditSeniorMonom(arg):
-    ret_str = str()
-    if arg[0] == '+':
-        arg.pop(0)
-    for it in arg:
-        ret_str += str(it)
-    return ret_str
-
-def GetPolinomial(list_monom):
-    ret_str = str()
-    for it in range(0, len(list_monom), 1):
-        ret_str += str(list_monom[it])
-    return ret_str
-
-def IsNumerical(s):
-    try:
-        float(s)
-        return True
-    except ValueError:
-        return False
-
-def ToFloat(_coeffs):
-    tmp = []
-    for it in _coeffs:
-        tmp.append(float(it))
-    return tmp
-
 class Polynomial:
-    code = {'0': chr(8304), '1': chr(185), '2': chr(178),
-            '3': chr(179), '4': chr(8308), '5': chr(8309),
-            '6': chr(8310), '7': chr(8311), '8': chr(8312),
-            '9': chr(8313)}
-
-    def __init__(self, _coeffs = 0):
+    def __init__(self, _coeffs=0):
         self.coeffs = list()
         self.__checkValue(_coeffs)
         self.__addValue(_coeffs)
@@ -107,20 +19,9 @@ class Polynomial:
            return 'Polynomial({})'.format(tuple(tmp_list))
 
     def __str__(self):
-        list_monom = list()
-        len_poly = len(self.coeffs)
-        if len_poly > 1 and len_poly - self.coeffs.count(0) != 0:
-            for monom_number in range(0, len_poly, 1):
-                tmp_str = GetMonom(monom_number, self.coeffs[monom_number], self.code, 3)
-                if tmp_str != "empty":
-                    list_monom.append(tmp_str)
-                else:
-                    continue
-            list_monom.reverse()
-            list_monom[0] = EditSeniorMonom(list(list_monom[0]))
-        else:
-            list_monom.append(0)
-        return GetPolinomial(list_monom)
+        polynom = self.coeffs
+        polynom.reverse()
+        return FormStringPolynomial(polynom)
 
     def __eq__(self, other):
         other = Polynomial(other)
@@ -151,11 +52,11 @@ class Polynomial:
             resPolynomial.coeffs[it] = abs(resPolynomial.coeffs[it])
         return resPolynomial
 
-    def __bool__(self):
-        if len(self.coeffs) == 1 and self.coeffs[0] == 0:
-            return False
-        else:
-            return True
+    def __len__(self):
+        return len(self.coeffs)
+
+    def __getitem__(self, key):
+        return self.coeffs[key]
 
     def __iadd__(self, other):
         other = Polynomial(other)
@@ -163,7 +64,7 @@ class Polynomial:
         if len(self.coeffs) <= len_poly:
             for it in range(len(self.coeffs), len(self.coeffs) + (len_poly - len(self.coeffs)), 1):
                 self.coeffs.append(0)
-        for it in range(0,len_poly,1):
+        for it in range(0, len_poly, 1):
             self.coeffs[it] += other.coeffs[it]
             tmp = self.coeffs[it]
             if tmp - self.coeffs[it] == 0:
@@ -188,7 +89,7 @@ class Polynomial:
         if len(self.coeffs) <= len_poly:
             for it in range(len(self.coeffs), len(self.coeffs) + (len_poly - len(self.coeffs)), 1):
                 self.coeffs.append(0)
-        for it in range(0,len_poly,1):
+        for it in range(0, len_poly, 1):
             self.coeffs[it] -= other.coeffs[it]
         return self
 
@@ -259,6 +160,56 @@ class Polynomial:
     def __del__(self):
         del self.coeffs
 
+def RemoveFraction(str_coeff):
+    pattern = re.compile('\d\.0\d')
+    result = pattern.findall(str_coeff)
+    if not result:
+        regex = '\.0'
+        str = re.sub(regex, '', str_coeff)
+    else:
+        str = str_coeff
+    return str
+
+def IsNumerical(s):
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
+
+def FormStringPolynomial(polynomial, var_string='x'):
+    res = ''
+    first_pow = len(polynomial) - 1
+    for i, coeff in enumerate(polynomial):
+        power = first_pow - i
+        coeff = round(coeff, 2)
+
+        if coeff:
+            if coeff < 0:
+                sign, coeff = '-', -coeff
+            elif coeff > 0:
+                sign = ('+' if res else '')
+
+            str_coeff = '' if coeff == 1 and power != 0 else str(coeff)
+
+            if power == 0:
+                str_power = ''
+            elif power == 1:
+                str_power = var_string
+            else:
+                str_power = var_string + '^' + str(power)
+
+            res += sign + RemoveFraction(str_coeff) + str_power
+    return res
+
+
+def ToFloat(_coeffs):
+    tmp = []
+    for it in _coeffs:
+        tmp.append(float(it))
+    return tmp
 
 if __name__ == "__main__":
     print("For manual testing")
+    #print(Polynomial("1, 2, 3"))
+    #print(Polynomial("1.001, 2, 3"))
