@@ -2,6 +2,8 @@
 
 set PARAM=%1
 
+cd Polynomial
+
 IF "%PARAM%" NEQ "" (
 	IF "%PARAM%" NEQ "-p2.7" (
 		IF "%PARAM%" NEQ "-p3.6" (
