@@ -2,10 +2,9 @@ import unittest
 import polynomial as pm
 
 class TestClassPolynomial(unittest.TestCase):
-
     def setUp(self):
-        self.test_srt = str()
-        self.tp_A = pm.Polynomial(range(5))
+        self.test_str = str()
+        self.tp_A = pm.Polynomial((1, 2, 0, -3))
         self.tp_B = pm.Polynomial((1.23, 2.34, 0, -5))
         self.tp_C = pm.Polynomial((0, 0, 0, 0, 0, 0, 2))
         pass
@@ -19,123 +18,134 @@ class TestClassPolynomial(unittest.TestCase):
         self.assertFalse(self.tp_A == self.tp_C, "Error! Polynomials is equals")
 
     #@unittest.skip('Temporarily disabled')
-    def test_method__str__(self):
-        self.test_srt = "10x^10+9x^9+8x^8+7x^7+6x^6+5x^5+4x^4+3x^3+2x^2+x"
+    def test_method__str__positive(self):
         self.tp_A = pm.Polynomial(range(11))
-        self.assertEqual(self.tp_A.__str__(), self.test_srt)
+        self.assertEqual(self.tp_A.__str__(), "x^9+2x^8+3x^7+4x^6+5x^5+6x^4+7x^3+8x^2+9x+10")
 
-        self.test_srt = "-x^2+1.23"
         self.tp_B = pm.Polynomial((1.2345, 0.0001, -1))
-        self.assertEqual(self.tp_B.__str__(), self.test_srt)
+        self.assertEqual(self.tp_B.__str__(), "1.23x^2-1")
 
-        self.test_srt = "x^6-x^4+x^2+1"
         self.tp_C = pm.Polynomial((1, 0, 1, 0, -1, 0, 1))
-        self.assertEqual(self.tp_C.__str__(), self.test_srt)
+        self.assertEqual(self.tp_C.__str__(), "x^6+x^4-x^2+1")
 
-        self.test_srt = "-1.1x^2+5.5x-1"
-        self.tp_B = pm.Polynomial((1.1, 5.5, -1))
-        self.assertNotEqual(self.tp_B.__str__(), self.test_srt)
+        self.tp_A = pm.Polynomial((1.2, 1.0001, -1))
+        self.assertEqual(self.tp_A.__str__(), "1.2x^2+x-1")
 
-        self.test_srt = "1x^2+1x-1"
-        self.tp_B = pm.Polynomial((-1, 1, 1))
-        self.assertNotEqual(self.tp_B.__str__(), self.test_srt)
+        self.tp_B = pm.Polynomial((1.2, 1.0101, -1))
+        self.assertEqual(self.tp_B.__str__(), "1.2x^2+1.01x-1")
 
-    #@unittest.skip('Temporarily disabled')
-    def test_method__neg__(self):
-        self.test_srt = "-4x^6-1.22x^5-44x^3-2.45x+1"
-        self.tp_A = pm.Polynomial('-1, 2.45, 0, 44 0, 1.22, 4')
-        self.assertEqual((-self.tp_A ).__str__(), self.test_srt)
+        self.tp_C = pm.Polynomial()
+        self.assertEqual(self.tp_C.__str__(), "")
 
-        self.test_srt = "-x^5-x^3-2x"
-        self.tp_A = pm.Polynomial('0, -2, 0, 1 0, -1')
-        self.assertNotEqual((-self.tp_A ).__str__(), self.test_srt)
-
-    # @unittest.skip('Temporarily disabled')
-    def test_method__pos__(self):
-        self.test_srt = "4x^6+1.22x^5+44x^3+2.45x+1"
-        self.test_srt = "4x^6+1.22x^5+44x^3+2.45x+1"
-        self.tp_A = pm.Polynomial('-1, 2.45, 0, 44 0, -1.22, 4')
-        self.assertEqual((+self.tp_A).__str__(), self.test_srt)
-
-        self.test_srt = "-x^5-x^3-2x"
-        self.tp_A = pm.Polynomial('0, 2, 0, -1 0, 1')
-        self.assertNotEqual((-self.tp_A ).__str__(), self.test_srt)
+        self.tp_A = pm.Polynomial(3)
+        self.assertEqual(self.tp_A.__str__(), "3")
 
     #@unittest.skip('Temporarily disabled')
-    def test_method__add__(self):
-        self.test_srt = "4x^4-2x^3+2x^2+3.34x+1.23"
-        self.assertEqual((self.tp_A + self.tp_B).__str__(), self.test_srt)
+    def test_method__str__negative(self):
+        self.tp_A = pm.Polynomial((1, 5.5, -1))
+        self.assertNotEqual(self.tp_A.__str__(), "1x^2+5.5x-1")
+
+        self.tp_B = pm.Polynomial((1, 5.0, -1))
+        self.assertNotEqual(self.tp_A.__str__(), "x^2+5.0x-1")
+
+        self.tp_C = pm.Polynomial((1, 5.001, 1))
+        self.assertNotEqual(self.tp_A.__str__(), "x^2+5.001x+1")
 
     #@unittest.skip('Temporarily disabled')
-    def test_method__radd__(self):
-        self.test_srt = "-5x^3+2.34x+3.33"
-        self.assertEqual((2.1 + self.tp_B).__str__(), self.test_srt)
+    def test_method__neg__positive(self):
+        self.assertEqual((-self.tp_B).__str__(), "-1.23x^3-2.34x^2+5")
+
+    #@unittest.skip('Temporarily disabled')
+    def test_method__neg__negative(self):
+        self.assertNotEqual((-self.tp_B).__str__(), "-1.23x^3-2.34x^2-5")
+        self.assertNotEqual((-self.tp_B).__str__(), "1.23x^3+2.34x^2+5")
+
+    #@unittest.skip('Temporarily disabled')
+    def test_method__pos__positive(self):
+        self.tp_A = pm.Polynomial('-1, 2.45, 0, 44, 0, -1.22, 4')
+        self.tp_B = pm.Polynomial('-1, -2, 3, -4 , 5')
+        self.assertEqual((+self.tp_A).__str__(), "x^6+2.45x^5+44x^3+1.22x+4")
+        self.assertEqual((+self.tp_B).__str__(), "x^4+2x^3+3x^2+4x+5")
+
+    #@unittest.skip('Temporarily disabled')
+    def test_method__pos__negative(self):
+        self.assertNotEqual((-self.tp_B).__str__(), "1.23x^3+2.34x^2-5")
+        self.assertNotEqual((-self.tp_B).__str__(), "+1.23x^3+2.34x^2+5")
 
     #@unittest.skip('Temporarily disabled')
     def test_method__iadd__(self):
-        self.test_srt = "-5x^3+2x^2+2.34x+2"
-        self.tp_A = pm.Polynomial((1.23, 2.34, 0, -5))
-        self.tp_A += (0.77, 0, 2)
-        self.assertEqual((self.tp_A).__str__(), self.test_srt)
+        self.tp_A += (0.77, 1, 2)
+        self.assertEqual((self.tp_A).__str__(), "x^3+2.77x^2+x-1")
+
+        self.tp_A += (1, 3, 0.23, 2, 1)
+        self.assertEqual((self.tp_A).__str__(), "x^4+4x^3+3x^2+3x")
+
+
+    #@unittest.skip('Temporarily disabled')
+    def test_method__add__(self):
+        self.assertEqual((self.tp_A + self.tp_B).__str__(), "2.23x^3+4.34x^2-8")
+
+    #@unittest.skip('Temporarily disabled')
+    def test_method__radd__(self):
+        self.assertEqual((2.1 + self.tp_A).__str__(), "x^3+2x^2-0.9")
 
     #@unittest.skip('Temporarily disabled')
     def test_method__sub__(self):
-        self.test_srt = "4x^4+8x^3+2x^2-1.34x-1.23"
-        self.assertEqual((self.tp_A - self.tp_B).__str__(), self.test_srt)
+        self.tp_B = pm.Polynomial((1, 1, 0, -5))
+        self.assertEqual((self.tp_A - self.tp_B).__str__(), "x^2+2")
 
     #@unittest.skip('Temporarily disabled')
     def test_method__rsub__(self):
-        self.test_srt = "5x^3-2.34x+0.87"
-        self.assertEqual((2.1 - self.tp_B).__str__(), self.test_srt)
+        self.tp_A = pm.Polynomial((1, 2, 0, -3))
+        self.assertEqual((2.1 - self.tp_A).__str__(), "-x^3-2x^2+5.1")
 
     #@unittest.skip('Temporarily disabled')
     def test_method__isub__(self):
-        self.test_srt = "-6x^3+2x^2+2x"
         self.tp_B = pm.Polynomial((1.23, 2.34, 0, -5))
         self.tp_B -= (1.23, 0.34, -2, 1)
-        self.assertEqual(self.tp_B.__str__(), self.test_srt)
+        self.assertEqual(self.tp_B.__str__(), "2x^2+2x-6")
 
-    #@unittest.skip('Temporarily disabled')
+    @unittest.skip('Temporarily disabled')
     def test_method__mul__(self):
-        self.test_srt = "x^2-1"
+        self.test_str = "x^2-1"
         self.tp_A = pm.Polynomial((1, 1))
         self.tp_B = pm.Polynomial((-1, 1))
-        self.assertEqual((self.tp_A * self.tp_B).__str__(), self.test_srt)
+        self.assertEqual((self.tp_A * self.tp_B).__str__(), self.test_str)
 
-        self.test_srt = "10x^3-5x^2-10x"
+        self.test_str = "10x^3-5x^2-10x"
         self.tp_A = pm.Polynomial(-5)
         self.tp_B = pm.Polynomial((0, 2, 1, -2))
-        self.assertEqual((self.tp_A * self.tp_B).__str__(),  self.test_srt)
+        self.assertEqual((self.tp_A * self.tp_B).__str__(), self.test_str)
 
-        self.test_srt = "-x^10-2x^9-3x^8"
+        self.test_str = "-x^10-2x^9-3x^8"
         self.tp_A = pm.Polynomial((0,0,0,0,0,0,0,0,3,2,1))
         self.tp_B = pm.Polynomial(-1)
-        self.assertEqual((self.tp_A * self.tp_B).__str__(), self.test_srt)
+        self.assertEqual((self.tp_A * self.tp_B).__str__(), self.test_str)
 
         self.tp_B = 0
         self.assertEqual((self.tp_A * self.tp_B).__str__(), '')
 
-        self.test_srt = "x^13-4x^11+5x^5-20x^3"
+        self.test_str = "x^13-4x^11+5x^5-20x^3"
         self.tp_A = pm.Polynomial((0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 1))
         self.tp_B = pm.Polynomial((0, -4, 0, 1))
-        self.assertEqual((self.tp_A * self.tp_B).__str__(), self.test_srt)
+        self.assertEqual((self.tp_A * self.tp_B).__str__(), self.test_str)
 
-    #@unittest.skip('Temporarily disabled')
+    @unittest.skip('Temporarily disabled')
     def test_method__rmul__(self):
-        self.test_srt = "-x^5+3x^3+3x^2-2x-3"
+        self.test_str = "-x^5+3x^3+3x^2-2x-3"
         self.tp_A = pm.Polynomial((3, 2, 0, -1))
         self.tp_B = pm.Polynomial((-1, 0, 1))
-        self.assertEqual((self.tp_B * self.tp_A).__str__(), self.test_srt)
+        self.assertEqual((self.tp_B * self.tp_A).__str__(), self.test_str)
 
-    #@unittest.skip('Temporarily disabled')
+    @unittest.skip('Temporarily disabled')
     def test_method__imul__(self):
-        self.test_srt = "-x^5+3x^3+3x^2-2x-3"
+        self.test_str = "-x^5+3x^3+3x^2-2x-3"
         self.tp_A = pm.Polynomial((-1, 0, 1))
         self.tp_A *= (3, 2, 0, -1)
-        self.assertEqual((self.tp_A).__str__(), self.test_srt)
+        self.assertEqual((self.tp_A).__str__(), self.test_str)
 
     def tearDown(self):
-        del self.test_srt
+        del self.test_str
         del self.tp_A
         del self.tp_B
         del self.tp_C

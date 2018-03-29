@@ -19,9 +19,7 @@ class Polynomial:
            return 'Polynomial({})'.format(tuple(tmp_list))
 
     def __str__(self):
-        polynom = self.coeffs
-        polynom.reverse()
-        return FormStringPolynomial(polynom)
+        return FormStringPolynomial(self.coeffs)
 
     def __eq__(self, other):
         other = Polynomial(other)
@@ -60,15 +58,20 @@ class Polynomial:
 
     def __iadd__(self, other):
         other = Polynomial(other)
-        len_poly = len(other.coeffs)
-        if len(self.coeffs) <= len_poly:
-            for it in range(len(self.coeffs), len(self.coeffs) + (len_poly - len(self.coeffs)), 1):
-                self.coeffs.append(0)
-        for it in range(0, len_poly, 1):
+        len_polynomial_right = len(other.coeffs)
+        len_polynomial_left = len(self.coeffs)
+        len_polynomial_result = max(len_polynomial_left, len_polynomial_right)
+
+        if len_polynomial_left < len_polynomial_right:
+            self.__increase(len_polynomial_right - len_polynomial_left)
+
+        if len_polynomial_left > len_polynomial_right:
+            for it in range(len_polynomial_right, len_polynomial_left, 1):
+                other.coeffs.insert(0, 0.0)
+
+        for it in range(0, len_polynomial_result, 1):
             self.coeffs[it] += other.coeffs[it]
-            tmp = self.coeffs[it]
-            if tmp - self.coeffs[it] == 0:
-                int(self.coeffs[it])
+
         return self
 
     def __add__(self, other):
@@ -85,12 +88,20 @@ class Polynomial:
 
     def __isub__(self, other):
         other = Polynomial(other)
-        len_poly = len(other.coeffs)
-        if len(self.coeffs) <= len_poly:
-            for it in range(len(self.coeffs), len(self.coeffs) + (len_poly - len(self.coeffs)), 1):
-                self.coeffs.append(0)
-        for it in range(0, len_poly, 1):
+        len_polynomial_right = len(other.coeffs)
+        len_polynomial_left = len(self.coeffs)
+        len_polynomial_result = max(len_polynomial_left, len_polynomial_right)
+
+        if len_polynomial_left < len_polynomial_right:
+            self.__increase(len_polynomial_right - len_polynomial_left)
+
+        if len_polynomial_left > len_polynomial_right:
+            for it in range(len_polynomial_right, len_polynomial_left, 1):
+                other.coeffs.insert(0, 0.0)
+
+        for it in range(0, len_polynomial_result, 1):
             self.coeffs[it] -= other.coeffs[it]
+
         return self
 
     def __sub__(self, other):
@@ -107,8 +118,8 @@ class Polynomial:
 
     def __imul__(self, other):
         other = Polynomial(other)
-        len_poly = len(self.coeffs) + len(other.coeffs)
-        resPolynomial = Polynomial([0 for i in range(len_poly)])
+        len_polynomial = len(self.coeffs) + len(other.coeffs)
+        resPolynomial = Polynomial([0 for i in range(len_polynomial)])
         for i in range(0, len(self.coeffs), 1):
             for j in range(0, len(other.coeffs), 1):
                 resPolynomial.coeffs[i + j] += self.coeffs[i] * other.coeffs[j]
@@ -136,10 +147,9 @@ class Polynomial:
         elif type(_coeff) is Polynomial:
             self.coeffs = ToFloat(_coeff.coeffs)
         elif type(_coeff) is str:
-            tmp_str = re.sub('[\,]', '', _coeff).split(' ')
-            for it in range(0,len(tmp_str),1):
-                if IsNumerical(tmp_str[it]):
-                    self.coeffs.append(float(tmp_str[it]))
+            tmp_str = _coeff.split(',')
+            for it in range(0, len(tmp_str), 1):
+                self.coeffs.append(float(re.sub('\s', '', tmp_str[it])))
         else:
             self.coeffs = ToFloat(list(_coeff))
 
@@ -148,14 +158,18 @@ class Polynomial:
             if len(_coeff) == 1 and IsNumerical(_coeff[0]) == False:
                 raise ValueError("Invalid initialization list! Not a number!")
             if (len(_coeff) > 1):
-                tmp_checkList = re.sub('[\,]', '', _coeff).split(' ')
-                for it in tmp_checkList:
-                    if IsNumerical(it) == False:
-                        raise ValueError("Invalid initialization list! Not a number!")
+                pattern = re.compile('[^0-9,\s.+-]')
+                result = pattern.findall(_coeff)
+                if result:
+                    raise ValueError("Invalid initialization list! Not a number!")
         if (type(_coeff) is list) or (type(_coeff) is tuple):
             for it in _coeff:
                 if (type(it) is not int) and (type(it) is not float):
                     raise ValueError("Error! Invalid type in initialization list")
+
+    def __increase(self, count):
+        for it in range(0, count, 1):
+            self.coeffs.insert(0, 0.0)
 
     def __del__(self):
         del self.coeffs
@@ -211,5 +225,7 @@ def ToFloat(_coeffs):
 
 if __name__ == "__main__":
     print("For manual testing")
-    #print(Polynomial("1, 2, 3"))
-    #print(Polynomial("1.001, 2, 3"))
+    print(2.77 + 0.33)
+    a = Polynomial('-1, 2.45, 0, 44, 0, -1.22, 4')
+    print(a)
+    #print(Polynomial(Polynomial("0, 2, 3, 8")))
