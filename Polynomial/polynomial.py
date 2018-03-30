@@ -1,5 +1,28 @@
 import re
 
+def RemoveFraction(str_coeff):
+    pattern = re.compile('\d\.0\d')
+    result = pattern.findall(str_coeff)
+    if not result:
+        regex = '\.0'
+        str = re.sub(regex, '', str_coeff)
+    else:
+        str = str_coeff
+    return str
+
+def IsNumerical(s):
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
+
+def ToFloat(_coeffs):
+    tmp = []
+    for it in _coeffs:
+        tmp.append(float(it))
+    return tmp
+
 class Polynomial:
     def __init__(self, _coeffs=0):
         self.coeffs = list()
@@ -8,18 +31,12 @@ class Polynomial:
 
     def __repr__(self):
        if len(self.coeffs) == 1:
-            return 'Polynomial({})'.format(self.coeffs[0])
+           return 'Polynomial({})'.format(self.coeffs[0])
        else:
-           tmp_list = self.coeffs
-           for it in reversed(tmp_list):
-               if it == 0:
-                   tmp_list.remove(it)
-               else:
-                   break
-           return 'Polynomial({})'.format(tuple(tmp_list))
+           return 'Polynomial({})'.format(tuple(self.coeffs))
 
     def __str__(self):
-        return FormStringPolynomial(self.coeffs)
+        return self.__to_string()
 
     def __eq__(self, other):
         other = Polynomial(other)
@@ -34,9 +51,9 @@ class Polynomial:
     def __ne__(self, other):
         other = Polynomial(other)
         if self.__eq__(other) == False:
-            return True;
+            return True
         else:
-            return False;
+            return False
 
     def __neg__(self):
         resPolynomial = Polynomial(self.coeffs)
@@ -58,20 +75,10 @@ class Polynomial:
 
     def __iadd__(self, other):
         other = Polynomial(other)
-        len_polynomial_right = len(other.coeffs)
-        len_polynomial_left = len(self.coeffs)
-        len_polynomial_result = max(len_polynomial_left, len_polynomial_right)
-
-        if len_polynomial_left < len_polynomial_right:
-            self.__increase(len_polynomial_right - len_polynomial_left)
-
-        if len_polynomial_left > len_polynomial_right:
-            for it in range(len_polynomial_right, len_polynomial_left, 1):
-                other.coeffs.insert(0, 0.0)
-
+        len_polynomial_result = max(len(self), len(other))
+        self.__increase(other)
         for it in range(0, len_polynomial_result, 1):
             self.coeffs[it] += other.coeffs[it]
-
         return self
 
     def __add__(self, other):
@@ -88,20 +95,10 @@ class Polynomial:
 
     def __isub__(self, other):
         other = Polynomial(other)
-        len_polynomial_right = len(other.coeffs)
-        len_polynomial_left = len(self.coeffs)
-        len_polynomial_result = max(len_polynomial_left, len_polynomial_right)
-
-        if len_polynomial_left < len_polynomial_right:
-            self.__increase(len_polynomial_right - len_polynomial_left)
-
-        if len_polynomial_left > len_polynomial_right:
-            for it in range(len_polynomial_right, len_polynomial_left, 1):
-                other.coeffs.insert(0, 0.0)
-
+        len_polynomial_result = max(len(self), len(other))
+        self.__increase(other)
         for it in range(0, len_polynomial_result, 1):
             self.coeffs[it] -= other.coeffs[it]
-
         return self
 
     def __sub__(self, other):
@@ -118,16 +115,14 @@ class Polynomial:
 
     def __imul__(self, other):
         other = Polynomial(other)
-        len_polynomial = len(self.coeffs) + len(other.coeffs)
-        resPolynomial = Polynomial([0 for i in range(len_polynomial)])
-        for i in range(0, len(self.coeffs), 1):
-            for j in range(0, len(other.coeffs), 1):
-                resPolynomial.coeffs[i + j] += self.coeffs[i] * other.coeffs[j]
+        resPolynomial = Polynomial([0 for i in range(len(other) + len(self) - 1)])
+        for it1, val1 in enumerate(self.coeffs):
+            for it2, val2 in enumerate(other.coeffs):
+                resPolynomial.coeffs[it1 + it2] += val1 * val2
         self.coeffs = []
         for it in resPolynomial.coeffs:
             self.coeffs.append(it)
         return self
-
 
     def __mul__(self, other):
         other = Polynomial(other)
@@ -167,65 +162,46 @@ class Polynomial:
                 if (type(it) is not int) and (type(it) is not float):
                     raise ValueError("Error! Invalid type in initialization list")
 
-    def __increase(self, count):
-        for it in range(0, count, 1):
-            self.coeffs.insert(0, 0.0)
+    def __increase(self, polynomial):
+        if len(self) < len(polynomial):
+            for it in range(len(self), len(polynomial), 1):
+                self.coeffs.insert(0, 0.0)
+        else:
+            for it in range(len(polynomial), len(self), 1):
+                polynomial.coeffs.insert(0, 0.0)
+
+    def __to_string(self, var_string='x', fraction=2):
+        res = ''
+
+        if len(self) == self.coeffs.count(0.0):
+            return '0'
+
+        first_pow = len(self) - 1
+        for i, coeff in enumerate(self.coeffs):
+            pow = first_pow - i
+            coeff = round(coeff, fraction)
+
+            if coeff:
+                if coeff < 0:
+                    sign, coeff = '-', -coeff
+                elif coeff > 0:
+                    sign = '+' if res else ''
+
+                str_coeff = '' if coeff == 1 and pow != 0 else str(coeff)
+
+                if pow == 0:
+                    str_power = ''
+                elif pow == 1:
+                    str_power = var_string
+                else:
+                    str_power = var_string + '^' + str(pow)
+
+                res += sign + RemoveFraction(str_coeff) + str_power
+
+        return res
 
     def __del__(self):
         del self.coeffs
 
-def RemoveFraction(str_coeff):
-    pattern = re.compile('\d\.0\d')
-    result = pattern.findall(str_coeff)
-    if not result:
-        regex = '\.0'
-        str = re.sub(regex, '', str_coeff)
-    else:
-        str = str_coeff
-    return str
-
-def IsNumerical(s):
-    try:
-        float(s)
-        return True
-    except ValueError:
-        return False
-
-def FormStringPolynomial(polynomial, var_string='x'):
-    res = ''
-    first_pow = len(polynomial) - 1
-    for i, coeff in enumerate(polynomial):
-        power = first_pow - i
-        coeff = round(coeff, 2)
-
-        if coeff:
-            if coeff < 0:
-                sign, coeff = '-', -coeff
-            elif coeff > 0:
-                sign = ('+' if res else '')
-
-            str_coeff = '' if coeff == 1 and power != 0 else str(coeff)
-
-            if power == 0:
-                str_power = ''
-            elif power == 1:
-                str_power = var_string
-            else:
-                str_power = var_string + '^' + str(power)
-
-            res += sign + RemoveFraction(str_coeff) + str_power
-    return res
-
-
-def ToFloat(_coeffs):
-    tmp = []
-    for it in _coeffs:
-        tmp.append(float(it))
-    return tmp
-
 if __name__ == "__main__":
     print("For manual testing")
-    print(2.77 + 0.33)
-    a = Polynomial('-1, 2.45, 0, 44, 0, -1.22, 4')
-    print(a)
-    #print(Polynomial(Polynomial("0, 2, 3, 8")))
