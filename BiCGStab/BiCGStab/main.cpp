@@ -4,7 +4,6 @@
 #include <algorithm> 
 
 #define EPS 0.001
-#define SIZE_MATRIX(size) ( (size) * (size) * sizeof(double) )
 #define SIZE_VECTOR(size) ( (size) * sizeof(double) )
 #define RANDOM(range) ( (double)(rand()) / RAND_MAX * ( 2 * (range) )  - (range) )
 #define CLEAR(ptr) \
@@ -25,31 +24,6 @@ typedef struct _CRSMatrix {
 	std::vector<int> rowPtr;	// Массив индексов начала строк 
 }CRSMatrix;
 
-template <typename T>
-static inline void swap(T *left, T *right) {
-	T tmp;
-
-	tmp = *left;
-	*left = *right;
-	*right = tmp;
-}
-
-static inline double* init_matrix(int matrix_size) {
-	double *matrix = nullptr;
-	matrix = (double*)malloc(SIZE_MATRIX(matrix_size));
-	if (matrix == nullptr)
-		ERROR_MSG("Pointer is NULL");
-	return matrix;
-}
-
-static inline double* init_vector(int vector_size) {
-	double *vector = nullptr;
-	vector = (double*)malloc(SIZE_VECTOR(vector_size));
-	if (vector == nullptr)
-		ERROR_MSG("Pointer is NULL");
-	return vector;
-}
-
 static inline void init_crs_matrix(CRSMatrix &crs_matrix, int size, int notNull) {
 	crs_matrix.n = crs_matrix.m = size;
 	crs_matrix.nz = notNull;
@@ -67,6 +41,15 @@ static inline void clear_crs_matrix(CRSMatrix &crs_matrix) {
 	crs_matrix.rowPtr.clear();
 	std::vector<int>().swap(crs_matrix.rowPtr);
 }
+
+static inline double* init_vector(int vector_size) {
+	double *vector = nullptr;
+	vector = (double*)malloc(SIZE_VECTOR(vector_size));
+	if (vector == nullptr)
+		ERROR_MSG("Pointer is NULL");
+	return vector;
+}
+
 
 static inline void set_vector(double *vector, int size, double range) {
 	srand((unsigned int)time(NULL));
@@ -95,8 +78,8 @@ static inline void generate_crs_matrix(CRSMatrix &crs_matrix, int size, int coun
 				if (crs_matrix.colIndex[i * count_nz_in_row + k] >
 					crs_matrix.colIndex[i * count_nz_in_row + k + 1])
 				{
-					swap(&crs_matrix.colIndex[i * count_nz_in_row + k],
-						&crs_matrix.colIndex[i * count_nz_in_row + k + 1]);
+					std::swap(crs_matrix.colIndex[i * count_nz_in_row + k],
+						crs_matrix.colIndex[i * count_nz_in_row + k + 1]);
 				}
 	}
 
@@ -127,17 +110,6 @@ static double get_elem(const CRSMatrix &crs_matrix, int i, int j) {
 	return find_elem;
 }
 
-static inline void show_matrix(const double *matrix, int matrix_size) {
-	if (matrix == nullptr)
-		ERROR_MSG("Pointer is NULL");
-	for (int i = 0; i < matrix_size; i++) {
-		for (int j = 0; j < matrix_size; j++)
-			printf("%.3f  ", *(matrix + i * matrix_size + j));
-		printf(" \n");
-	}
-	printf("\n");
-}
-
 static inline void show_crs_matrix(const CRSMatrix &crs_matrix, const char* msg) {
 	MSG(msg);
 	for (int i = 0; i < crs_matrix.m; i++) {
@@ -161,48 +133,6 @@ static inline void show_vector(double *vector, int size, const char* msg) {
 	printf("\n");
 }
 
-static inline void mtrxcpy(double *matrix, const CRSMatrix &crs_matrix) {
-	if (matrix == nullptr)
-		ERROR_MSG("Pointer is NULL");
-	int i1 = 0, 
-		i2 = 0;
-	for (int i = 0; i < crs_matrix.n; i++) {
-		i1 = crs_matrix.rowPtr[i];
-		i2 = crs_matrix.rowPtr[i + 1];
-		for (int j = i1; j < i2; j++)
-			matrix[i * crs_matrix.n + crs_matrix.colIndex[j]] = crs_matrix.val[j];
-	}
-}
-
-static int crsmatrixcmp(const CRSMatrix &crs_matrix_1, const CRSMatrix &crs_matrix_2) {
-	if (crs_matrix_1.n != crs_matrix_2.n)
-		return 1;
-
-	int ret = 0;
-
-	double *tmp_matrix = init_matrix(crs_matrix_1.n);
-	memset(tmp_matrix, 0, SIZE_MATRIX(crs_matrix_1.n));
-	mtrxcpy(tmp_matrix, crs_matrix_1);
-
-	int i1 = 0,
-		i2 = 0;
-	for (int i = 0; i < crs_matrix_2.n; ++i) {
-		i1 = crs_matrix_2.rowPtr[i];
-		i2 = crs_matrix_2.rowPtr[i + 1];
-		for (int j = i1; j < i2; j++)
-			tmp_matrix[i * crs_matrix_2.n + crs_matrix_2.colIndex[j]] -= crs_matrix_2.val[j];
-	}
-
-	for (int i = 0; i < crs_matrix_2.n; i++)
-		for (int j = 0; j < crs_matrix_2.n; j++)
-			if (tmp_matrix[i * crs_matrix_2.n + j] > EPS)
-				ret = 1;
-
-	CLEAR(tmp_matrix);
-
-	return ret;
-}
-
 static inline void transpose_CRSMatrix(const CRSMatrix &crs_matrix, CRSMatrix &crs_matrix_t) {
 	std::fill(crs_matrix_t.rowPtr.begin(), crs_matrix_t.rowPtr.end(), 0);
 	for (int i = 0; i < crs_matrix.nz; i++)
@@ -218,16 +148,13 @@ static inline void transpose_CRSMatrix(const CRSMatrix &crs_matrix, CRSMatrix &c
 	int j1 = 0, j2 = 0, 
 		col = 0, row = 0, 
 		IIndex = 0, RIndex = 0;
-	//double val;
 	for (int i = 0; i < crs_matrix_t.n; i++) {
 		j1 = crs_matrix.rowPtr[i]; 
 		j2 = crs_matrix.rowPtr[i + 1];
-		col = i; // Столбец в AT - строка в А
+		col = i;
 		for (int j = j1; j < j2; j++) {
-			//val = crs_matrix.val[j];
 			RIndex = crs_matrix.colIndex[j];
 			IIndex = crs_matrix_t.rowPtr[RIndex + 1];
-			//crs_matrix_t.val[IIndex] = val;
 			crs_matrix_t.val[IIndex] = crs_matrix.val[j];
 			crs_matrix_t.colIndex[IIndex] = col;
 			crs_matrix_t.rowPtr[RIndex + 1]++;
@@ -238,6 +165,7 @@ static inline void transpose_CRSMatrix(const CRSMatrix &crs_matrix, CRSMatrix &c
 static inline void mul_CRSMatrix_on_vector(const CRSMatrix &crs_matrix, const double *vector, double *result_vector) {
 	int s = 0, k = 0;
 	memset(result_vector, 0, SIZE_VECTOR(crs_matrix.n));
+//#pragma omp parallel for shared(result_vector, crs_matrix, vector) if (crs_matrix.n > 50)
 	for (int i = 0; i < crs_matrix.n; ++i) {
 		s = crs_matrix.rowPtr[i];
 		k = crs_matrix.rowPtr[i + 1];
@@ -248,12 +176,14 @@ static inline void mul_CRSMatrix_on_vector(const CRSMatrix &crs_matrix, const do
 
 static inline double mul_vector_on_vector(double *vector_1, double *vector_2, int size_vector) {
 	double sum = 0.0;
+#pragma omp parallel for reduction(+:sum)
 	for (int i = 0; i < size_vector; i++)
 		sum += vector_1[i] * vector_2[i];
 	return sum;
 }
 
 static inline void mul_vector_on_scalar(double *vector, int size_vector, double scalar) {
+#pragma omp parallel for
 	for (int i = 0; i < size_vector; i++)
 		vector[i] *= scalar;
 }
@@ -287,8 +217,6 @@ static inline void check_result(const CRSMatrix &crs_matrix, double *b, double *
 }
 
 void SLE_Solver_CRS_BICG(CRSMatrix &A, double *b, double eps, int max_iter, double *x, int &count) {
-	// Для ускорения вычислений вычислим
-	// транспонированную матрицу А
 	CRSMatrix At;
 	init_crs_matrix(At, A.n, A.nz);
 
@@ -308,10 +236,6 @@ void SLE_Solver_CRS_BICG(CRSMatrix &A, double *b, double eps, int max_iter, doub
 	double *nP = init_vector(A.n);
 	double *nbiP = init_vector(A.n);
 
-	// указатель, для смены указателей на вектора текущего
-	// и следующего шага метода
-	double * tmp;
-
 	// массивы для хранения произведения матрицы на вектор
 	//направления и бисопряженный к нему
 	double *multAP = init_vector(A.n);
@@ -328,7 +252,6 @@ void SLE_Solver_CRS_BICG(CRSMatrix &A, double *b, double eps, int max_iter, doub
 
 	//задание начального приближения
 	int i;
-	//int n = A.N;
 	memset(x, 1, SIZE_VECTOR(A.n));
 	//инициализация метода
 	mul_CRSMatrix_on_vector(A, x, multAP);
@@ -338,27 +261,28 @@ void SLE_Solver_CRS_BICG(CRSMatrix &A, double *b, double eps, int max_iter, doub
 
 	// реализация метода
 	for (count = 0; count < max_iter; count++) {
+
 		mul_CRSMatrix_on_vector(A, P, multAP);
 		mul_CRSMatrix_on_vector(At, biP, multAtbiP);
 		numerator = mul_vector_on_vector(biR, R, A.n);
 		denominator = mul_vector_on_vector(biP, multAP, A.n);
 		alfa = numerator / denominator;
 
-		for (i = 0; i < A.n; i++)
+#pragma omp parallel for shared(nR, R, multAP, nbiR, biR, multAtbiP)
+		for (i = 0; i < A.n; i++) {
 			nR[i] = R[i] - alfa * multAP[i];
-
-		for (i = 0; i < A.n; i++)
 			nbiR[i] = biR[i] - alfa * multAtbiP[i];
+		}
 
 		denominator = numerator;
 		numerator = mul_vector_on_vector(nbiR, nR, A.n);
 		beta = numerator / denominator;
 
-		for (i = 0; i < A.n; i++)
+#pragma omp parallel for shared(nP, nR, P, nbiP, nbiR, biP)
+		for (i = 0; i < A.n; i++) {
 			nP[i] = nR[i] + beta * P[i];
-
-		for (i = 0; i < A.n; i++)
 			nbiP[i] = nbiR[i] + beta * biP[i];
+		}
 
 		// контроль достежения необходимой точности
 		check = sqrt(mul_vector_on_vector(R, R, A.n)) / norm;
@@ -368,14 +292,12 @@ void SLE_Solver_CRS_BICG(CRSMatrix &A, double *b, double eps, int max_iter, doub
 		for (i = 0; i < A.n; i++)
 			x[i] += alfa * P[i];
 
-		// меняем массивы текущего и следующего шага местами
-		tmp = R; R = nR; nR = tmp;
-		tmp = P; P = nP; nP = tmp;
-		tmp = biR; biR = nbiR; nbiR = tmp;
-		tmp = biP; biP = nbiP; nbiP = tmp;
+		std::swap(R, nR);
+		std::swap(P, nP);
+		std::swap(biR, nbiR);
+		std::swap(biP, nbiP);
 	}
 
-	// освобождение памяти
 	clear_crs_matrix(At);
 	CLEAR(R);
 	CLEAR(biR);
@@ -390,19 +312,18 @@ void SLE_Solver_CRS_BICG(CRSMatrix &A, double *b, double eps, int max_iter, doub
 }
 
 int main(char **argv, int argc) {
-	int size = 3,
+	int size = 5,
 		max_iter = 10,
 		count = 10;
 	double eps = 0.001;
 
 	CRSMatrix A;
-
 	generate_crs_matrix(A, size, 2, 2.0);
 
 	double *b = init_vector(A.n);
-	set_vector(b, A.n, 2.0);
 	double *x = init_vector(A.n);
-
+	set_vector(b, A.n, 2.0);
+	
 	SLE_Solver_CRS_BICG(A, b, eps, max_iter, x, count);
 
 	check_result(A, b, x, eps);
