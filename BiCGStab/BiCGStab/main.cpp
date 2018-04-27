@@ -1,20 +1,26 @@
 #include <vector>
 #include "time.h"
 #include <iostream>
-#include <algorithm> 
+#include <algorithm>
+#include <assert.h>
+#include <omp.h>
 
-#define EPS 0.001
-#define SIZE_VECTOR(size) ( (size) * sizeof(double) )
+#define PARALLEL 1
+#define SOFT_GRADER 0
+
+#if !SOFT_GRADER
+	#include "conio.h"
+
+	#define MSG(msg) printf("%s\n", ##msg)
+	#define IS_EQUAL(x, y, eps) ( fabs( (x) - (y)) < (eps) ? true : false )
+#endif
+
 #define RANDOM(range) ( (double)(rand()) / RAND_MAX * ( 2 * (range) )  - (range) )
+#define SIZE_VECTOR(size) ( (size) * sizeof(double) )
 #define CLEAR(ptr) \
 if ((ptr) != NULL) free((ptr))
-#define ERROR_MSG(msg) \
-printf("%s. File: %s, line: %d\n", ##msg, __FILE__, __LINE__)
-#define MSG(msg) \
-printf("%s\n", ##msg)
-#define IS_EQUAL(x, y, eps) ( fabs( (x) - (y)) < (eps) ? true : false )
-#define IS_NOT_EQUAL(x, y, eps) ( !IS_EQUAL(x, y, eps) )
 
+#if !SOFT_GRADER
 typedef struct _CRSMatrix {
 	int n;						// Число строк в матрице 
 	int m;						// Число столбцов в матрице 
@@ -23,6 +29,7 @@ typedef struct _CRSMatrix {
 	std::vector<int> colIndex;	// Массив номеров столбцов 
 	std::vector<int> rowPtr;	// Массив индексов начала строк 
 }CRSMatrix;
+#endif
 
 static inline void init_crs_matrix(CRSMatrix &crs_matrix, int size, int notNull) {
 	crs_matrix.n = crs_matrix.m = size;
@@ -43,14 +50,12 @@ static inline void clear_crs_matrix(CRSMatrix &crs_matrix) {
 }
 
 static inline double* init_vector(int vector_size) {
-	double *vector = nullptr;
-	vector = (double*)malloc(SIZE_VECTOR(vector_size));
-	if (vector == nullptr)
-		ERROR_MSG("Pointer is NULL");
+	double *vector = (double*)malloc(SIZE_VECTOR(vector_size));
+	assert(vector != nullptr);
 	return vector;
 }
 
-
+#if !SOFT_GRADER
 static inline void set_vector(double *vector, int size, double range) {
 	srand((unsigned int)time(NULL));
 	for (int i = 0; i < size; i++)
@@ -95,9 +100,20 @@ static inline void generate_crs_matrix(CRSMatrix &crs_matrix, int size, int coun
 	}
 }
 
+static void set_elem(CRSMatrix &crs_matrix, int i, int j, double val) {
+	assert((i < crs_matrix.n) && (j < crs_matrix.n));
+	int j1 = crs_matrix.rowPtr[i];
+	int j2 = crs_matrix.rowPtr[i + 1];
+	for (int k = j1; k < j2; ++k) {
+		if (crs_matrix.colIndex[k] == j) {
+			crs_matrix.val[k] = val;
+			break;
+		}
+	}
+}
+
 static double get_elem(const CRSMatrix &crs_matrix, int i, int j) {
-	if (crs_matrix.n < i || crs_matrix.n < j)
-		ERROR_MSG("Error in index");
+	assert((i < crs_matrix.n) && (j < crs_matrix.n));
 	double find_elem = 0.0;
 	int j1 = crs_matrix.rowPtr[i];
 	int j2 = crs_matrix.rowPtr[i + 1];
@@ -109,19 +125,70 @@ static double get_elem(const CRSMatrix &crs_matrix, int i, int j) {
 	}
 	return find_elem;
 }
+#endif
 
+static inline void transpose_CRSMatrix(const CRSMatrix &crs_matrix, CRSMatrix &crs_matrix_t) {
+	std::fill(crs_matrix_t.rowPtr.begin(), crs_matrix_t.rowPtr.end(), 0);
+
+#pragma omp parallel for shared(crs_matrix, crs_matrix_t) if (PARALLEL)
+	for (int i = 0; i < crs_matrix.nz; i++)
+		crs_matrix_t.rowPtr[crs_matrix.colIndex[i] + 1]++;
+
+	int S = 0, tmp = 0;
+	//omp_lock_t mutex;
+
+	// ???????????????
+	for (int i = 1; i <= crs_matrix.n; i++) {
+		tmp = crs_matrix_t.rowPtr[i];
+		crs_matrix_t.rowPtr[i] = S;
+		S += tmp;
+	}
+
+	int j1 = 0, j2 = 0, column = 0;
+
+	for (int i = 0; i < crs_matrix_t.n; i++) {
+		j1 = crs_matrix.rowPtr[i];
+		j2 = crs_matrix.rowPtr[i + 1];
+		column = i;
+#pragma omp parallel for firstprivate(j1, j2) if (PARALLEL)
+		for (int j = j1; j < j2; j++) {
+			crs_matrix_t.val[crs_matrix_t.rowPtr[crs_matrix.colIndex[j] + 1]] = crs_matrix.val[j];
+			crs_matrix_t.colIndex[crs_matrix_t.rowPtr[crs_matrix.colIndex[j] + 1]] = column;
+			crs_matrix_t.rowPtr[crs_matrix.colIndex[j] + 1]++;
+		}
+	}
+}
+
+static inline void mul_CRSMatrix_on_vector(const CRSMatrix &crs_matrix, const double *vector, double *result_vector) {
+	int j1 = 0, j2 = 0;
+	double sum;
+	memset(result_vector, 0, SIZE_VECTOR(crs_matrix.n));
+	for (int i = 0; i < crs_matrix.n; ++i) {
+		j1 = crs_matrix.rowPtr[i];
+		j2 = crs_matrix.rowPtr[i + 1];
+		sum = 0.0;
+#pragma omp parallel for firstprivate(j1, j2) reduction(+:sum) if (PARALLEL)
+		for (int j = j1; j < j2; ++j)
+			sum += crs_matrix.val[j] * vector[crs_matrix.colIndex[j]];
+		result_vector[i] = sum;
+	}
+}
+
+static inline double mul_vector_on_vector(double *vector_1, double *vector_2, int size_vector) {
+	double sum = 0.0;
+#pragma omp parallel for reduction(+:sum) if(PARALLEL)
+	for (int i = 0; i < size_vector; i++)
+		sum += vector_1[i] * vector_2[i];
+	return sum;
+}
+
+#if !SOFT_GRADER
 static inline void show_crs_matrix(const CRSMatrix &crs_matrix, const char* msg) {
 	MSG(msg);
 	for (int i = 0; i < crs_matrix.m; i++) {
-		for (int j = 0; j < crs_matrix.n; j++) {
-			if (j != 0)
-				printf(" ");
-			printf("%.3f", get_elem(crs_matrix, i, j));
-		}
-
-		if (i < crs_matrix.m) {
-			printf("\n");
-		}
+		for (int j = 0; j < crs_matrix.n; j++)
+			printf("%.3f  ", get_elem(crs_matrix, i, j));
+		printf("\n");
 	}
 	printf("\n");
 }
@@ -133,68 +200,13 @@ static inline void show_vector(double *vector, int size, const char* msg) {
 	printf("\n");
 }
 
-static inline void transpose_CRSMatrix(const CRSMatrix &crs_matrix, CRSMatrix &crs_matrix_t) {
-	std::fill(crs_matrix_t.rowPtr.begin(), crs_matrix_t.rowPtr.end(), 0);
-	for (int i = 0; i < crs_matrix.nz; i++)
-		crs_matrix_t.rowPtr[crs_matrix.colIndex[i] + 1]++;
-
-	int S = 0, tmp = 0;
-	for (int i = 1; i <= crs_matrix.n; i++) {
-		tmp = crs_matrix_t.rowPtr[i];
-		crs_matrix_t.rowPtr[i] = S;
-		S += tmp;
-	}
-
-	int j1 = 0, j2 = 0, 
-		col = 0, row = 0, 
-		IIndex = 0, RIndex = 0;
-	for (int i = 0; i < crs_matrix_t.n; i++) {
-		j1 = crs_matrix.rowPtr[i]; 
-		j2 = crs_matrix.rowPtr[i + 1];
-		col = i;
-		for (int j = j1; j < j2; j++) {
-			RIndex = crs_matrix.colIndex[j];
-			IIndex = crs_matrix_t.rowPtr[RIndex + 1];
-			crs_matrix_t.val[IIndex] = crs_matrix.val[j];
-			crs_matrix_t.colIndex[IIndex] = col;
-			crs_matrix_t.rowPtr[RIndex + 1]++;
-		}
-	}
-}
-
-static inline void mul_CRSMatrix_on_vector(const CRSMatrix &crs_matrix, const double *vector, double *result_vector) {
-	int s = 0, k = 0;
-	memset(result_vector, 0, SIZE_VECTOR(crs_matrix.n));
-//#pragma omp parallel for shared(result_vector, crs_matrix, vector) if (crs_matrix.n > 50)
-	for (int i = 0; i < crs_matrix.n; ++i) {
-		s = crs_matrix.rowPtr[i];
-		k = crs_matrix.rowPtr[i + 1];
-		for (int j = s; j < k; ++j)
-			result_vector[i] += crs_matrix.val[j] * vector[crs_matrix.colIndex[j]];
-	}
-}
-
-static inline double mul_vector_on_vector(double *vector_1, double *vector_2, int size_vector) {
-	double sum = 0.0;
-#pragma omp parallel for reduction(+:sum)
-	for (int i = 0; i < size_vector; i++)
-		sum += vector_1[i] * vector_2[i];
-	return sum;
-}
-
-static inline void mul_vector_on_scalar(double *vector, int size_vector, double scalar) {
-#pragma omp parallel for
-	for (int i = 0; i < size_vector; i++)
-		vector[i] *= scalar;
-}
-
 static inline void check_result(const CRSMatrix &crs_matrix, double *b, double *x, double eps) {
 	double *check_vector = init_vector(crs_matrix.n);
 	mul_CRSMatrix_on_vector(crs_matrix, x, check_vector);
 
 	bool fcheck = true;
 	for (int i = 0; i < crs_matrix.n; i++) {
-		if (IS_NOT_EQUAL(check_vector[i], b[i], eps)) {
+		if (!IS_EQUAL(check_vector[i], b[i], eps)) {
 			fcheck = false;
 			break;
 		}
@@ -215,6 +227,7 @@ static inline void check_result(const CRSMatrix &crs_matrix, double *b, double *
 
 	CLEAR(check_vector);
 }
+#endif
 
 void SLE_Solver_CRS_BICG(CRSMatrix &A, double *b, double eps, int max_iter, double *x, int &count) {
 	CRSMatrix At;
@@ -256,6 +269,7 @@ void SLE_Solver_CRS_BICG(CRSMatrix &A, double *b, double eps, int max_iter, doub
 	//инициализация метода
 	mul_CRSMatrix_on_vector(A, x, multAP);
 
+#pragma omp parallel for private(i) shared(R, biR , P, biP, b, multAP) if (PARALLEL)
 	for (i = 0; i < A.n; i++)
 		R[i] = biR[i] = P[i] = biP[i] = b[i] - multAP[i];
 
@@ -268,7 +282,7 @@ void SLE_Solver_CRS_BICG(CRSMatrix &A, double *b, double eps, int max_iter, doub
 		denominator = mul_vector_on_vector(biP, multAP, A.n);
 		alfa = numerator / denominator;
 
-#pragma omp parallel for shared(nR, R, multAP, nbiR, biR, multAtbiP)
+#pragma omp parallel for shared(nR, R, multAP, nbiR, biR, multAtbiP) if (PARALLEL)
 		for (i = 0; i < A.n; i++) {
 			nR[i] = R[i] - alfa * multAP[i];
 			nbiR[i] = biR[i] - alfa * multAtbiP[i];
@@ -278,7 +292,7 @@ void SLE_Solver_CRS_BICG(CRSMatrix &A, double *b, double eps, int max_iter, doub
 		numerator = mul_vector_on_vector(nbiR, nR, A.n);
 		beta = numerator / denominator;
 
-#pragma omp parallel for shared(nP, nR, P, nbiP, nbiR, biP)
+#pragma omp parallel for shared(nP, nR, P, nbiP, nbiR, biP) if (PARALLEL)
 		for (i = 0; i < A.n; i++) {
 			nP[i] = nR[i] + beta * P[i];
 			nbiP[i] = nbiR[i] + beta * biP[i];
@@ -289,6 +303,7 @@ void SLE_Solver_CRS_BICG(CRSMatrix &A, double *b, double eps, int max_iter, doub
 		if (check < eps)
 			break;
 
+#pragma omp parallel for private(i) shared(x, alfa ,P) if (PARALLEL)
 		for (i = 0; i < A.n; i++)
 			x[i] += alfa * P[i];
 
@@ -328,9 +343,12 @@ int main(char **argv, int argc) {
 
 	check_result(A, b, x, eps);
 
+	clear_crs_matrix(A);
 	CLEAR(b);
 	CLEAR(x);
 
-	system("pause");
+	MSG("To end, press any key");
+	_getch();
+	
 	return 0;
 }
