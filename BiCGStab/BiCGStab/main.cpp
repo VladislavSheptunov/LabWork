@@ -21,13 +21,14 @@
 if ((ptr) != NULL) free((ptr))
 
 #if !SOFT_GRADER
+// Why store the size of column (b), if the matrix is square (n x n)?
 typedef struct _CRSMatrix {
-	int n;						// Число строк в матрице 
-	int m;						// Число столбцов в матрице 
-	int nz;						// Число ненулевых элементов в разреженной матрице 
-	std::vector<double> val;	// Массив значений матрицы по строкам 
-	std::vector<int> colIndex;	// Массив номеров столбцов 
-	std::vector<int> rowPtr;	// Массив индексов начала строк 
+	int n;						// Number of rows in the matrix
+	int m;						// Number of columns in the matrix 
+	int nz;						// Number of non-zero elements in a sparse matrix 
+	std::vector<double> val;	// Array of matrix values by rows 
+	std::vector<int> colIndex;	// Array of column numbers
+	std::vector<int> rowPtr;	// Array of row start indices
 }CRSMatrix;
 #endif
 
@@ -92,22 +93,10 @@ static inline void generate_crs_matrix(CRSMatrix &crs_matrix, int size, int coun
 	for (int i = 0; i < count_nz_in_row * crs_matrix.n; i++) {
 		crs_matrix.val[i] = RANDOM(range);
 		c = 0;
-		for (int j = 0; j <= crs_matrix.n ; j++)
+		for (int j = 0; j <= crs_matrix.n; j++)
 		{
 			crs_matrix.rowPtr[j] = c;
 			c += count_nz_in_row;
-		}
-	}
-}
-
-static void set_elem(CRSMatrix &crs_matrix, int i, int j, double val) {
-	assert((i < crs_matrix.n) && (j < crs_matrix.n));
-	int j1 = crs_matrix.rowPtr[i];
-	int j2 = crs_matrix.rowPtr[i + 1];
-	for (int k = j1; k < j2; ++k) {
-		if (crs_matrix.colIndex[k] == j) {
-			crs_matrix.val[k] = val;
-			break;
 		}
 	}
 }
@@ -130,14 +119,11 @@ static double get_elem(const CRSMatrix &crs_matrix, int i, int j) {
 static inline void transpose_CRSMatrix(const CRSMatrix &crs_matrix, CRSMatrix &crs_matrix_t) {
 	std::fill(crs_matrix_t.rowPtr.begin(), crs_matrix_t.rowPtr.end(), 0);
 
-#pragma omp parallel for shared(crs_matrix, crs_matrix_t) if (PARALLEL)
 	for (int i = 0; i < crs_matrix.nz; i++)
 		crs_matrix_t.rowPtr[crs_matrix.colIndex[i] + 1]++;
 
 	int S = 0, tmp = 0;
-	//omp_lock_t mutex;
-
-	// ???????????????
+	/// @TODO You can parallelize
 	for (int i = 1; i <= crs_matrix.n; i++) {
 		tmp = crs_matrix_t.rowPtr[i];
 		crs_matrix_t.rowPtr[i] = S;
@@ -145,12 +131,10 @@ static inline void transpose_CRSMatrix(const CRSMatrix &crs_matrix, CRSMatrix &c
 	}
 
 	int j1 = 0, j2 = 0, column = 0;
-
 	for (int i = 0; i < crs_matrix_t.n; i++) {
 		j1 = crs_matrix.rowPtr[i];
 		j2 = crs_matrix.rowPtr[i + 1];
 		column = i;
-#pragma omp parallel for firstprivate(j1, j2) if (PARALLEL)
 		for (int j = j1; j < j2; j++) {
 			crs_matrix_t.val[crs_matrix_t.rowPtr[crs_matrix.colIndex[j] + 1]] = crs_matrix.val[j];
 			crs_matrix_t.colIndex[crs_matrix_t.rowPtr[crs_matrix.colIndex[j] + 1]] = column;
@@ -161,16 +145,13 @@ static inline void transpose_CRSMatrix(const CRSMatrix &crs_matrix, CRSMatrix &c
 
 static inline void mul_CRSMatrix_on_vector(const CRSMatrix &crs_matrix, const double *vector, double *result_vector) {
 	int j1 = 0, j2 = 0;
-	double sum;
 	memset(result_vector, 0, SIZE_VECTOR(crs_matrix.n));
+#pragma omp parallel for firstprivate(j1, j2) if (PARALLEL)
 	for (int i = 0; i < crs_matrix.n; ++i) {
 		j1 = crs_matrix.rowPtr[i];
 		j2 = crs_matrix.rowPtr[i + 1];
-		sum = 0.0;
-#pragma omp parallel for firstprivate(j1, j2) reduction(+:sum) if (PARALLEL)
 		for (int j = j1; j < j2; ++j)
-			sum += crs_matrix.val[j] * vector[crs_matrix.colIndex[j]];
-		result_vector[i] = sum;
+			result_vector[i] += crs_matrix.val[j] * vector[crs_matrix.colIndex[j]];
 	}
 }
 
@@ -180,6 +161,110 @@ static inline double mul_vector_on_vector(double *vector_1, double *vector_2, in
 	for (int i = 0; i < size_vector; i++)
 		sum += vector_1[i] * vector_2[i];
 	return sum;
+}
+
+void SLE_Solver_CRS_BICG(CRSMatrix &A, double *b, double eps, int max_iter, double *x, int &count) {
+	// -- To speed up the calculations
+	CRSMatrix At; 
+	init_crs_matrix(At, A.n, A.nz);
+	transpose_CRSMatrix(A, At);
+	// --
+
+	// -- Arrays for storing discrepancies current and next approximation
+	double *R = init_vector(A.n);
+	double *biR = init_vector(A.n);
+	double *nR = init_vector(A.n);
+	double *nbiR = init_vector(A.n);
+	// --
+
+	// -- Arrays for storing the current and next vector method step directions
+	double *P = init_vector(A.n);
+	double *biP = init_vector(A.n);
+	double *nP = init_vector(A.n);
+	double *nbiP = init_vector(A.n);
+	// --
+
+	// -- Arrays for storing the product of a matrix by a vector directions and bi-conjugate to it
+	double *multAP = init_vector(A.n);
+	double *multAtbiP = init_vector(A.n);
+	// --
+
+	// -- Coefficients of computational formulas
+	double alfa, beta;
+	// --
+
+	// --Numerator and denominator of beta and alfa coefficients
+	double numerator, denominator;
+	// --
+
+	// -- Variables to calculate the accuracy of the current approximation
+	double check, norm;
+	// --
+	norm = sqrt(mul_vector_on_vector(b, b, A.n));
+
+	int i; // Counter
+
+	// -- Initialization
+	std::fill_n(x, A.n, 1.0); // The initial approximation
+	mul_CRSMatrix_on_vector(A, x, multAP);
+	
+	for (i = 0; i < A.n; i++)
+		R[i] = biR[i] = P[i] = biP[i] = b[i] - multAP[i];
+
+	// --
+
+	// ----------------- ALGORITHM ----------------- //
+	for (count = 0; count < max_iter; count++) {
+
+		mul_CRSMatrix_on_vector(A, P, multAP);
+		mul_CRSMatrix_on_vector(At, biP, multAtbiP);
+		numerator = mul_vector_on_vector(biR, R, A.n);
+		denominator = mul_vector_on_vector(biP, multAP, A.n);
+		alfa = numerator / denominator;
+
+#pragma omp parallel for shared(nR, R, multAP, nbiR, biR, multAtbiP) if (PARALLEL)
+		for (i = 0; i < A.n; i++) {
+			nR[i] = R[i] - alfa * multAP[i];
+			nbiR[i] = biR[i] - alfa * multAtbiP[i];
+		}
+
+		denominator = numerator;
+		numerator = mul_vector_on_vector(nbiR, nR, A.n);
+		beta = numerator / denominator;
+
+#pragma omp parallel for shared(nP, nR, P, nbiP, nbiR, biP, beta) if (PARALLEL)
+		for (i = 0; i < A.n; i++) {
+			nP[i] = nR[i] + beta * P[i];
+			nbiP[i] = nbiR[i] + beta * biP[i];
+		}
+
+		check = sqrt(mul_vector_on_vector(R, R, A.n)) / norm;
+		if (check < eps)
+			break;
+
+#pragma omp parallel for private(i) shared(x, P, alfa) if (PARALLEL)
+		for (i = 0; i < A.n; i++) {
+			x[i] += alfa * P[i];
+		}
+
+		std::swap(R, nR);
+		std::swap(P, nP);
+		std::swap(biR, nbiR);
+		std::swap(biP, nbiP);
+	}
+	// -------------------------------------------- //
+	
+	clear_crs_matrix(At);
+	CLEAR(R);
+	CLEAR(biR);
+	CLEAR(nR);
+	CLEAR(nbiR);
+	CLEAR(P);
+	CLEAR(biP);
+	CLEAR(nP);
+	CLEAR(nbiP);
+	CLEAR(multAP);
+	CLEAR(multAtbiP);
 }
 
 #if !SOFT_GRADER
@@ -229,117 +314,31 @@ static inline void check_result(const CRSMatrix &crs_matrix, double *b, double *
 }
 #endif
 
-void SLE_Solver_CRS_BICG(CRSMatrix &A, double *b, double eps, int max_iter, double *x, int &count) {
-	CRSMatrix At;
-	init_crs_matrix(At, A.n, A.nz);
-
-	transpose_CRSMatrix(A, At);
-
-	// массивы для хранения невязки
-	// текущего и следующего приближения
-	double *R = init_vector(A.n);
-	double *biR = init_vector(A.n);
-	double *nR = init_vector(A.n);
-	double *nbiR = init_vector(A.n);
-
-	// массивы для хранения текущего и следующего вектора
-	// направления шага метода
-	double *P = init_vector(A.n);
-	double *biP = init_vector(A.n);
-	double *nP = init_vector(A.n);
-	double *nbiP = init_vector(A.n);
-
-	// массивы для хранения произведения матрицы на вектор
-	//направления и бисопряженный к нему
-	double *multAP = init_vector(A.n);
-	double *multAtbiP = init_vector(A.n);
-
-	// beta и alfa - коэффициенты расчетных формул
-	double alfa, beta;
-	// числитель и знаменатель коэффициентов beta и alfa
-	double numerator, denominator;
-	// переменные для вычисления
-	// точности текущего приближения
-	double check, norm;
-	norm = sqrt(mul_vector_on_vector(b, b, A.n));
-
-	//задание начального приближения
-	int i;
-	memset(x, 1, SIZE_VECTOR(A.n));
-	//инициализация метода
-	mul_CRSMatrix_on_vector(A, x, multAP);
-
-#pragma omp parallel for private(i) shared(R, biR , P, biP, b, multAP) if (PARALLEL)
-	for (i = 0; i < A.n; i++)
-		R[i] = biR[i] = P[i] = biP[i] = b[i] - multAP[i];
-
-	// реализация метода
-	for (count = 0; count < max_iter; count++) {
-
-		mul_CRSMatrix_on_vector(A, P, multAP);
-		mul_CRSMatrix_on_vector(At, biP, multAtbiP);
-		numerator = mul_vector_on_vector(biR, R, A.n);
-		denominator = mul_vector_on_vector(biP, multAP, A.n);
-		alfa = numerator / denominator;
-
-#pragma omp parallel for shared(nR, R, multAP, nbiR, biR, multAtbiP) if (PARALLEL)
-		for (i = 0; i < A.n; i++) {
-			nR[i] = R[i] - alfa * multAP[i];
-			nbiR[i] = biR[i] - alfa * multAtbiP[i];
-		}
-
-		denominator = numerator;
-		numerator = mul_vector_on_vector(nbiR, nR, A.n);
-		beta = numerator / denominator;
-
-#pragma omp parallel for shared(nP, nR, P, nbiP, nbiR, biP) if (PARALLEL)
-		for (i = 0; i < A.n; i++) {
-			nP[i] = nR[i] + beta * P[i];
-			nbiP[i] = nbiR[i] + beta * biP[i];
-		}
-
-		// контроль достежения необходимой точности
-		check = sqrt(mul_vector_on_vector(R, R, A.n)) / norm;
-		if (check < eps)
-			break;
-
-#pragma omp parallel for private(i) shared(x, alfa ,P) if (PARALLEL)
-		for (i = 0; i < A.n; i++)
-			x[i] += alfa * P[i];
-
-		std::swap(R, nR);
-		std::swap(P, nP);
-		std::swap(biR, nbiR);
-		std::swap(biP, nbiP);
-	}
-
-	clear_crs_matrix(At);
-	CLEAR(R);
-	CLEAR(biR);
-	CLEAR(nR);
-	CLEAR(nbiR);
-	CLEAR(P);
-	CLEAR(biP);
-	CLEAR(nP);
-	CLEAR(nbiP);
-	CLEAR(multAP);
-	CLEAR(multAtbiP);
-}
-
 int main(char **argv, int argc) {
 	int size = 5,
 		max_iter = 10,
 		count = 10;
 	double eps = 0.001;
 
+	
 	CRSMatrix A;
+	/// @TODO
+	// For the correct operation of the algorithm, the matrix A must be nondegenerate, that is, detA! = 0.
+	// In this case, the genius algorithm of the matrix is random. A variant of generating a degenerate matrix is possible.
+	// Need to refine this algorithm
 	generate_crs_matrix(A, size, 2, 2.0);
 
 	double *b = init_vector(A.n);
 	double *x = init_vector(A.n);
 	set_vector(b, A.n, 2.0);
 	
+	clock_t start = clock();
+	double wall_timer = omp_get_wtime();
+
 	SLE_Solver_CRS_BICG(A, b, eps, max_iter, x, count);
+
+	printf("TIME CLOCK = %f\n", (clock() - start) / 1000.0);
+	printf("TIME WTIME = %f\n", (omp_get_wtime() - wall_timer));
 
 	check_result(A, b, x, eps);
 
