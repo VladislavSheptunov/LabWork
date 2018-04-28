@@ -11,12 +11,13 @@
 
 #if !SOFT_GRADER
 	#include <conio.h>
-	#include <stdbool.h>
-
-	#define EPS 0.00001
+	#include <vector>
+	#include <fstream>
+	#define EPS 0.001
 	#define MSG(msg) printf("%s\n", ##msg)
 	#define IS_NOT_EQUAL(x, y) ( fabs( (x) - (y)) > (EPS) ? true : false )
-	#define RANDOM(range) ( (double)(rand()) / RAND_MAX * ( 2 * (range) )  - (range) )
+	#define RANDOM(range) ( (double)rand() / RAND_MAX * ( range ) ) // (double)(rand())/RAND_MAX*(max - min) + min;
+	#define SIGN(x) ( (x) >= 0 ? 1 : -1)
 #endif
 
 #define SIZE_MATRIX(size) ( (size) * (size) )
@@ -99,6 +100,29 @@ static inline void show_matrix(const double *matrix, int matrix_size, const char
 	printf("\n");
 }
 
+static inline void print_to_file(const std::vector<int> &size_matrix, const std::vector<int> &thread, const std::vector<double> &speedup) {
+	system("del ./TableSpeedUp.csv");
+
+	std::ofstream TableSpeedUp;
+	//TableSpeedUp.open("TableSpeedUp.csv");
+	TableSpeedUp.open("TableEfficiency.csv");
+	TableSpeedUp << "Count thread\\Matrix size;";
+
+	for (auto it : size_matrix)
+		TableSpeedUp << it << ";";
+
+	TableSpeedUp << "\n";
+
+	for (int it = 0; it < thread.size(); it++) {
+		TableSpeedUp << thread[it] << ";";
+		for (int i = 0; i < size_matrix.size(); i++)
+			TableSpeedUp << speedup[it + i*thread.size()] <<";";
+		TableSpeedUp << "\n";
+	}
+
+	TableSpeedUp.close();
+}
+
 static inline void check_result_cholesky_decomposition(double *A, double *L, int  matrix_size, int matrix_size_for_show) {
 	double *L_t = init_matrix(matrix_size);
 	double *L_mul_L_t = init_matrix(matrix_size);
@@ -109,7 +133,7 @@ static inline void check_result_cholesky_decomposition(double *A, double *L, int
 
 	CLEAR(L_t);
 
-	_Bool fcheck = true;
+	bool fcheck = true;
 	for (int i = 0; i < matrix_size; i++) {
 		for (int j = 0; j < matrix_size; j++) {
 			if (IS_NOT_EQUAL(*(A + i * matrix_size + j), *(L_mul_L_t + i * matrix_size + j))) {
@@ -123,7 +147,8 @@ static inline void check_result_cholesky_decomposition(double *A, double *L, int
 		show_matrix(A, matrix_size, "The source Matrix:");
 		show_matrix(L, matrix_size, "The lower triangular matrix:");
 		// Result
-		show_matrix(L_mul_L_t, matrix_size, "L * L^t:");
+		if (!fcheck)
+			show_matrix(L_mul_L_t, matrix_size, "L * L^t:");
 	}
 
 	if (fcheck)
@@ -180,7 +205,7 @@ static inline void matrix_subtraction_block(double *res_matrix,
 	const double *left_matrix,
 	const double *right_matrix,
 	int size_1, int size_2,
-	int begin_i, int begin_j, int total_size) 
+	int begin_i, int begin_j, int total_size)
 {
 #pragma omp parallel for shared(res_matrix, left_matrix, right_matrix) if (PARALLEL)
 	for (int i = 0; i < size_1; i++) {
@@ -238,7 +263,7 @@ static inline void adjoint_matrix(double *A, double *adj, int matrix_size) {
 		*adj = 1;
 		return;
 	}
-	
+
 #pragma omp parallel for shared(A, adj) if (PARALLEL)
 	for (int i = 0; i < matrix_size; i++) {
 		int sign = 1;
@@ -250,7 +275,7 @@ static inline void adjoint_matrix(double *A, double *adj, int matrix_size) {
 		}
 		CLEAR(tmp);
 	}
-	
+
 }
 
 static inline void inverse_matrix(double *A, double *inverse, int matrix_size) {
@@ -272,7 +297,7 @@ static inline void inverse_matrix(double *A, double *inverse, int matrix_size) {
 #define BLOCK_SIZE  8
 
 static double   *L11T_preallocated = NULL,
-				*L11T_inverse_preallocated = NULL;
+*L11T_inverse_preallocated = NULL;
 
 static inline void Cholesky_Decomposition_line(const double *A, double *L, int n, int offsetof_size_A,
 	int offsetof_col_L, int offsetof_row_L, int offsetof_size_L)
@@ -302,8 +327,8 @@ static inline void Cholesky_Decomposition_Second_Iteration(double *A21, double *
 	int begin_i_L21, int begin_j_L21, int total_len_L21,
 	int begin_i_A21, int begin_j_A21, int total_len_A21)
 {
-	double	*L11T = L11T_preallocated, 
-			*L11T_inverse = L11T_inverse_preallocated;
+	double	*L11T = L11T_preallocated,
+		*L11T_inverse = L11T_inverse_preallocated;
 
 	matrix_transposition_block(L11T, L11, r, r, begin_i_L11, begin_j_L11, total_len_L11);
 
@@ -318,7 +343,7 @@ static inline void Cholesky_Decomposition_Third_Iteration(double *A22_red, doubl
 	int begin_i_A22, int begin_j_A22, int total_len_A22)
 {
 	double	*L21_L21T = NULL,
-			*L21T = init_block(r * (n - r));
+		*L21T = init_block(r * (n - r));
 #pragma omp parallel sections
 	{
 #pragma omp section
@@ -375,14 +400,14 @@ static inline void Cholesky_Decomposition_Recursive(double *A, double *L, int n,
 	double *A22_red = init_matrix(n - BLOCK_SIZE);
 
 	Cholesky_Decomposition_Third_Iteration(A22_red, A, L, n, BLOCK_SIZE,
-										   L_begin_i + BLOCK_SIZE, L_begin_j + 0, n_full,
-										   BLOCK_SIZE, BLOCK_SIZE, n
+		L_begin_i + BLOCK_SIZE, L_begin_j + 0, n_full,
+		BLOCK_SIZE, BLOCK_SIZE, n
 	);
 
 	CLEAR(A);
 
 	Cholesky_Decomposition_Recursive(A22_red, L, n - BLOCK_SIZE, A_full, n_full,
-									 L_begin_i + BLOCK_SIZE, L_begin_j + BLOCK_SIZE);
+		L_begin_i + BLOCK_SIZE, L_begin_j + BLOCK_SIZE);
 }
 
 void Cholesky_Decomposition(double *A, double *L, int n) {
@@ -412,8 +437,8 @@ void Cholesky_Decomposition(double *A, double *L, int n) {
 	double *A22_red = init_matrix(n - BLOCK_SIZE);
 
 	Cholesky_Decomposition_Third_Iteration(A22_red, A, L, n, BLOCK_SIZE,
-										   BLOCK_SIZE, 0, n,
-										   BLOCK_SIZE, BLOCK_SIZE, n
+		BLOCK_SIZE, 0, n,
+		BLOCK_SIZE, BLOCK_SIZE, n
 	);
 
 	Cholesky_Decomposition_Recursive(A22_red, L, n - BLOCK_SIZE, A, n, BLOCK_SIZE, BLOCK_SIZE);
@@ -427,21 +452,68 @@ void Cholesky_Decomposition(double *A, double *L, int n) {
 #if !SOFT_GRADER
 int main(int argc, char** argv) {
 	// Starting from the debug
-	int size = 5;
-	double *matrix = NULL;
-	double *L = NULL;
+	std::vector<int> arr_matrix_size = {250, 500, 1000, 1500, 2000, 2500, 3000};
+	//std::vector<int> arr_matrix_size = { 5, 10 };
+	std::vector<int> count_thread;
+	std::vector<double> speedUp;
+	int max_threads = omp_get_max_threads();
+	for (int i = 1; i < max_threads + 1; i++) 
+		count_thread.push_back(i);
 
-	matrix = init_matrix(size);
-	L = init_matrix(size);
+	double *start_time = init_block(max_threads + 1);
+	double *diff_time = init_block(max_threads + 1);
+	double *speedup = init_block(max_threads + 1);
+	double *efficiency = init_block(max_threads + 1);
+	//--
 
-	gen_square_symmetric_positive_definite_matrix(matrix, size, 5.0);
+	for (auto it : arr_matrix_size) {
+		printf("\n========== MATRIX SIZE: %dx%d =========\n\n", it, it);
+		omp_set_num_threads(1);
+		double *matrix = init_matrix(it);
+		gen_square_symmetric_positive_definite_matrix(matrix, it, 3.0);
+		double *L = init_matrix(it);
 
-	Cholesky_Decomposition(matrix, L, size);
+		start_time[0] = omp_get_wtime();
+		Cholesky_Decomposition_line(matrix, L, it, it, 0, 0, it);
+		diff_time[0] = omp_get_wtime() - start_time[0];
+		speedup[0] = 1;
+		efficiency[0] = speedup[0] / 1;
 
-	check_result_cholesky_decomposition(matrix, L, size, 10);
+		printf("The result of the sequential algorithm:\n");
+		printf("Run time:   %.5f \n", diff_time[0]);
+		printf("Speedup:    %.5f \n", speedup[0]);
+		printf("Efficiency: %.5f \n\n", efficiency[0]);
 
-	CLEAR(matrix);
-	CLEAR(L);
+		check_result_cholesky_decomposition(matrix, L, it, 10);
+
+		for (int i = 1; i < max_threads + 1; i++) {
+			omp_set_num_threads(i);
+			memset(L, 0, SIZE_MATRIX_IN_BYTES(it));
+			start_time[i] = omp_get_wtime();
+			Cholesky_Decomposition(matrix, L, it);
+			diff_time[i] = omp_get_wtime() - start_time[i];
+			speedup[i] = diff_time[0] / diff_time[i];
+			efficiency[i] = speedup[i] / i;
+			printf("\nThe result of the block parallel algorithm (number of threads %d):\n", i);
+			printf("Run time:   %.5f \n", diff_time[i]);
+			printf("Speedup:    %.5f \n", speedup[i]);
+			printf("Efficiency: %.5f \n\n\n", efficiency[i]);
+			//speedUp.push_back(speedup[i]);
+			speedUp.push_back(efficiency[i]);
+			check_result_cholesky_decomposition(matrix, L, it, 10);
+		}
+
+		CLEAR(matrix);
+		CLEAR(L);
+	}
+
+	print_to_file(arr_matrix_size, count_thread, speedUp);
+
+	CLEAR(start_time);
+	CLEAR(diff_time);
+	CLEAR(speedup);
+	CLEAR(efficiency);
+
 
 	MSG("To end, press any key");
 	_getch();
