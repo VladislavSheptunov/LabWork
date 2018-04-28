@@ -1,3 +1,7 @@
-./ParallelMethods/cmake-build-debug
-./BiCGStab/x64
-./BiCGStab/BiCGStab/x64
+/ParallelMethods/cmake-build-debug
+/BiCGStab/x64
+/BiCGStab/Debug
+/BiCGStab/BiCGStab/x64
+/CholeskyDecomposition/x64
+/CholeskyDecomposition/Debug
+/CholeskyDecomposition/CholeskyDecomposition/x64

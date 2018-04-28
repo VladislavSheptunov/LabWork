@@ -13,9 +13,9 @@
 
 	#define MSG(msg) printf("%s\n", ##msg)
 	#define IS_EQUAL(x, y, eps) ( fabs( (x) - (y)) < (eps) ? true : false )
+	#define RANDOM(range) ( (double)(rand()) / RAND_MAX * ( 2 * (range) )  - (range) )
 #endif
 
-#define RANDOM(range) ( (double)(rand()) / RAND_MAX * ( 2 * (range) )  - (range) )
 #define SIZE_VECTOR(size) ( (size) * sizeof(double) )
 #define CLEAR(ptr) \
 if ((ptr) != NULL) free((ptr))
@@ -312,9 +312,8 @@ static inline void check_result(const CRSMatrix &crs_matrix, double *b, double *
 
 	CLEAR(check_vector);
 }
-#endif
 
-int main(char **argv, int argc) {
+int main(int argc, char **argv) {
 	int size = 5,
 		max_iter = 10,
 		count = 10;
@@ -351,3 +350,4 @@ int main(char **argv, int argc) {
 	
 	return 0;
 }
+#endif
