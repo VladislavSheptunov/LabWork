@@ -1,29 +1,20 @@
-//#include <iostream>
-//#include <omp.h>
-//#include <iomanip>
-//#include <vector>
-//#include <cmath>
-//#include <cstring>
-//#include <memory>
-//#include <numeric>
-//#include <algorithm>
+#include <omp.h>
+#include <assert.h>
+#include <vector>
+#include <algorithm>
 
-//
-//#define SOFT_GRADER 0
-//#define PARALLEL 1
-//
-//
-//#define M_PI	3.14159265358979323846  
-//#define EPS		1e-4f  
-//
-//typedef std::vector<std::vector<double>> grid;
-//
-//#if !SOFT_GRADER
+#define PARALLEL 1
+#define SOFT_GRADER 0
 
-#define HEAD_TASK_1 1
-#define HEAD_TASK_2 0
+#define M_PI	3.14159265358979323846
 
-#if HEAD_TASK_1
+typedef std::vector< std::vector< double > > grid;
+
+#if !SOFT_GRADER
+#include <conio.h>
+#include <fstream>
+#define MSG(msg) printf("%s\n", ##msg)
+// TEST TASK
 class heat_task {
 	heat_task();
 public:
@@ -38,199 +29,49 @@ public:
 	double top_condition(double x)		{ return 9.0 + x * x;	} // функция, задающая граничное условие при y = Y
 	double f(double x, double y)		{ return 4.0;			} // функция, задающая внешнее воздействие
 };
-#endif // HEAD_TASK_1
 
-#if HEAD_TASK_2
-class heat_task {
-	heat_task();
-public:
-	double X;	// ширина пластины
-	double Y;	// длина пластины
-	int n;		// размер сетки по x
-	int m;		// размер сетки по y
-	explicit heat_task(double _x, double _y, int _n, int _m) : X(_x), Y(_y), n(_n), m(_m) {}
-	double left_condition(double y)		{ return cos(y);			} // функция, задающая граничное условие при x = 0
-	double right_condition(double y)	{ return cos(y);			} // функция, задающая граничное условие при x = X
-	double bottom_condition(double x)	{ return sin(x) + 1;		} // функция, задающая граничное условие при y = 0
-	double top_condition(double x)		{ return sin(x) - 1;		} // функция, задающая граничное условие при y = Y
-	double f(double x, double y)		{ return -sin(x) - cos(y);	} // функция, задающая внешнее воздействие
-};
-#endif	// HEAD_TASK_2
+static inline void check_convergence(const heat_task &task, double* result) {
+	// @TODO: Make check
+	MSG("SUCCESSFUL");
+}
 
-//#endif // SOFT_GRADER
+static inline void print_result_experiment_to_file(	const std::vector<int> &size_matrix, 
+													const std::vector<int> &thread, 
+													const std::vector<double> &speedup) 
+{
+	system("del ./TableSpeedUp.csv");
 
+	std::ofstream TableSpeedUp;
+	TableSpeedUp.open("TableSpeedUp.csv");
+	//TableSpeedUp.open("TableEfficiency.csv");
+	TableSpeedUp << "Count thread\\Size grid;";
 
+	for (auto it : size_matrix)
+		TableSpeedUp << it << ";";
 
+	TableSpeedUp << "\n";
 
+	for (int it = 0; it < thread.size(); it++) {
+		TableSpeedUp << thread[it] << ";";
+		for (int i = 0; i < size_matrix.size(); i++)
+			TableSpeedUp << speedup[it + i * thread.size()] << ";";
+		TableSpeedUp << "\n";
+	}
 
+	TableSpeedUp.close();
+}
 
-
-
-
-
-//
-//
-//
-//void heat_dirichlet_sor(heat_task task, double* v)
-//{
-//	const int n = task.n;
-//	const int m = task.m;
-//	const double h_x = task.X / n;
-//	const double h_y = task.Y / m;
-//
-//	//const double W = 1.5 + std::sin(PI * h_x / 2) / 2;
-//	//const double W = 1;
-//	const double W = 2 / (1 + std::sin(M_PI * std::min(h_x, h_y) / 2));
-//
-//	const double REV_X = 1 / h_x / h_x;
-//	const double REV_Y = 1 / h_y / h_y;
-//	const double D = 2 * (REV_X + REV_Y);
-//
-//
-//	std::vector<std::vector<double>> result(n + 1, std::vector<double>(m + 1, 0.0));
-//#pragma omp parallel for if(PARALLEL)
-//	for (int i = 0; i <= n; ++i)
-//	{
-//		result[i][0] = task.bottom_condition(i * h_x);
-//		result[i][m] = task.top_condition(i * h_x);
-//	}
-//#pragma omp parallel for if(PARALLEL)
-//	for (int j = 0; j <= m; ++j)
-//	{
-//		result[0][j] = task.left_condition(j * h_y);
-//		result[n][j] = task.right_condition(j * h_y);
-//	}
-//
-//
-//	std::vector<std::vector<double>> func(n + 1, std::vector<double>(m + 1, 0.0));
-//#pragma omp parallel for if(PARALLEL)
-//	for (int i = 0; i <= n; ++i)
-//	{
-//		for (int j = 0; j <= m; ++j)
-//		{
-//			func[i][j] = -task.f(i * h_x, j * h_y);
-//		}
-//	}
-//
-//
-//	/*std::vector<std::vector<double>> b(n + 1, std::vector<double>(m + 1, 0.0));
-//
-//
-//	for (int i = 0; i <= n; ++i)
-//	{
-//	for (int j = 0; j <= m; ++j)
-//	{
-//	b[i][j] = task.f(i * h_x, j * h_y);
-//	}
-//	}
-//	for (int i = 1; i < n; ++i)
-//	{
-//	b[i][1] += REV_X * task.bottom_condition(i * h_x);
-//	b[i][m - 1] += REV_X * task.top_condition(i * h_x);
-//	}
-//	for (int j = 1; j < m; ++j)
-//	{
-//	b[0][j] += REV_Y * task.left_condition(j * h_y);
-//	b[n - 1][j] += REV_Y * task.right_condition(j * h_y);
-//	}*/
-//
-//
-//	auto new_result(result);
-//	double eps = 1e-4;
-//	double diff = eps;
-//	int iter = 0;
-//
-//	/*while (diff >= eps)
-//	{
-//	diff = 0;
-//	++iter;
-//	for (int i = 1; i < n; ++i)
-//	{
-//	for (int j = 1; j < m; ++j)
-//	{
-//	new_result[i][j] = func[i][j] + REV_X * (result[i - 1][j] + result[i + 1][j]) +
-//	REV_Y * (result[i][j - 1] + result[i][j + 1]);
-//	new_result[i][j] /= -D;
-//	diff = std::max(std::abs(new_result[i][j] - result[i][j]), diff);
-//	}
-//	}
-//	std::swap(result, new_result);
-//	}*/
-//
-//	//int max_iter = 10 * std::max(1, static_cast<int>(1 / h_x));
-//	int max_iter = 2 / std::min(h_x, h_y) / M_PI * log(1 / 1e-7);
-//	//std::cout << max_iter << std::endl;
-//
-//	for (int iter = 0; iter < max_iter; ++iter)
-//	{
-//		for (int k = 2; k < n + m - 1; ++k)
-//		{
-//#pragma omp parallel for if(PARALLEL)
-//			for (int i = std::max(1, k - m + 1); i < std::min(k, n); ++i)
-//			{
-//				int j = k - i;
-//				/*if (iter == 1)
-//				{
-//				std::cout << i << ' ' << j << std::endl;
-//				}*/
-//
-//				result[i][j] = W * (REV_X * (result[i - 1][j] + result[i + 1][j]) +
-//					REV_Y * (result[i][j - 1] + result[i][j + 1]) + func[i][j]) +
-//					(1 - W) * D * result[i][j];
-//				result[i][j] /= D;
-//			}
-//		}
-//		/*for (int i = 1; i < n; ++i)
-//		{
-//		for (int j = 1; j < m; ++j)
-//		{
-//		new_result[i][j] = W * (func[i][j] + REV_X * (result[i - 1][j] + result[i + 1][j]) +
-//		REV_Y * (result[i][j - 1] + result[i][j + 1]));
-//		//new_result[i][j] += (1 - W) * D * result[i][j];
-//		new_result[i][j] /= D;
-//		}
-//		}*/
-//		//std::swap(result, new_result);
-//	}
-//
-//	std::cout << max_iter << std::endl;
-//
-//#pragma omp parallel for if(PARALLEL)
-//	for (int i = 0; i <= n; ++i)
-//		for (int j = 0; j <= m; ++j)
-//			v[i * (m + 1) + j] = result[i][j];
-//
-//	/*for (int j = m; j >= 0; --j)
-//	{
-//	for (int i = 0; i <= n; ++i)
-//	{
-//	std::cout << std::setw(13) << result[i][j] << " ";
-//	//std::cout << std::setw(15) << b[i][j] << " ";
-//	}
-//	std::cout << std::endl;
-//	}*/
-//	std::cout << result[n / 2][m / 3] << std::endl;
-//}
-
-
-#include <omp.h>
-#include <vector>
-#include <algorithm>
-
-#define PARALLEL 1
-#define M_PI	3.14159265358979323846  
-
-typedef std::vector<std::vector<double>> grid;
+#endif // SOFT_GRADER
 
 void heat_dirichlet_sor(heat_task task, double* v) {
-	double h_x = task.X / task.n;
-	double h_y = task.Y / task.m;
+	const double h_x = task.X / task.n;
+	const double h_y = task.Y / task.m;
 
-	double W = 2 / (1 + std::sin(M_PI * std::min(h_x, h_y) / 2));
+	double w_opt = 2 / (1 + std::sin(M_PI * std::min(h_x, h_y) / 2));
 
 	double REV_X = 1 / ( h_x * h_x );
 	double REV_Y = 1 / ( h_y * h_y );
-	double D = (REV_X + REV_Y) * 2;
+	double alpha = (REV_X + REV_Y) * 2;
 
 	grid G(task.n + 1, std::vector<double>(task.m + 1, 0.0));
 #pragma omp parallel for shared(task, h_x, G) if(PARALLEL)
@@ -258,11 +99,9 @@ void heat_dirichlet_sor(heat_task task, double* v) {
 #pragma omp parallel for shared(G, W, D, REV_X, REV_Y, func) if(PARALLEL)
 			for (int i = std::max(1, k - task.m + 1); i < std::min(k, task.n); ++i) {
 				int j = k - i;
-
-				G[i][j] = W * (REV_X * (G[i - 1][j] + G[i + 1][j]) +
-					REV_Y * (G[i][j - 1] + G[i][j + 1]) + func[i][j]) +
-					(1 - W) * D * G[i][j];
-				G[i][j] /= D;
+				//  Уравнения разностной схемы 
+				G[i][j] = w_opt * (REV_X * (G[i - 1][j] + G[i + 1][j]) + REV_Y * (G[i][j - 1] + G[i][j + 1]) + func[i][j]) + (1 - w_opt) * alpha * G[i][j];
+				G[i][j] /= alpha;
 			}
 		}
 	}
@@ -273,18 +112,77 @@ void heat_dirichlet_sor(heat_task task, double* v) {
 			v[i * (task.m + 1) + j] = G[i][j];
 }
 
+#if !SOFT_GRADER
 int main(int argc, char **argv) {
-#if HEAD_TASK_1
-	heat_task task(2.0, 3.0, 256, 256);
-#endif // HEAD_TASK_1
+	// Starting from the debug
+	std::vector<int> arr_grid_size = { 100, 250, 500, 750, 1000, 1250, 1500 };
+	std::vector<int> count_thread;
+	std::vector<double> speedUp;
+	int max_threads = 4; // omp_get_max_threads();
+	for (int i = 1; i < max_threads + 1; i++)
+		count_thread.push_back(i);
 
-#if HEAD_TASK_2
-	heat_task task(M_PI, M_PI, 64, 64);
-#endif // HEAD_TASK_2
+	double grid_x = 2.0, // ширина пластины
+		   grid_y = 3.0; // длина пластины
+	
+	double *start_time = new double[max_threads + 1];
+	double *diff_time = new double[max_threads + 1];
+	double *speedup = new double[max_threads + 1];
+	double *efficiency = new double[max_threads + 1];
+	//--
 
-	double* v = new double[(task.m + 1) * (task.n + 1)];
-	heat_dirichlet_sor(task, v);
-	delete []v;
+	for (auto it : arr_grid_size) {
+		printf("\n========== GRID SIZE: %dx%d PLATE SEZE %.1fx%.1f =========\n\n", it, it, grid_x, grid_y);
+		omp_set_num_threads(1);
+		heat_task task(grid_x, grid_y, it, it);
+		double* v = new double[(task.m + 1) * (task.n + 1)];
+		
+		start_time[0] = omp_get_wtime();
+		heat_dirichlet_sor(task, v);
+		diff_time[0] = omp_get_wtime() - start_time[0];
+		speedup[0] = 1;
+		efficiency[0] = speedup[0] / 1;
 
-	return 0;
+		printf("The result of the sequential algorithm:\n");
+		printf("Run time:   %.5f \n", diff_time[0]);
+		printf("Speedup:    %.5f \n", speedup[0]);
+		printf("Efficiency: %.5f \n\n", efficiency[0]);
+
+		check_convergence(task, v);
+
+		for (int i = 1; i < max_threads + 1; i++) {
+			if (i == 1)
+				continue;
+			printf("\n========== GRID SIZE: %dx%d PLATE SEZE %.1fx%.1f =========\n\n", it, it, grid_x, grid_y);
+			omp_set_num_threads(i);
+			std::fill_n(v, (task.m + 1) * (task.n + 1), 0.0);
+			start_time[i] = omp_get_wtime();
+			heat_dirichlet_sor(task, v);
+			diff_time[i] = omp_get_wtime() - start_time[i];
+			speedup[i] = diff_time[0] / diff_time[i];
+			efficiency[i] = speedup[i] / i;
+			printf("\nThe result of the parallel algorithm (number of threads %d):\n", i);
+			printf("Run time:   %.5f \n", diff_time[i]);
+			printf("Speedup:    %.5f \n", speedup[i]);
+			printf("Efficiency: %.5f \n\n\n", efficiency[i]);
+			speedUp.push_back(speedup[i]);
+			//speedUp.push_back(efficiency[i]);
+			check_convergence(task, v);
+		}
+
+		delete[]v;
+	}
+
+	print_result_experiment_to_file(arr_grid_size, count_thread, speedUp);
+
+	delete[]start_time;
+	delete[]diff_time;
+	delete[]speedup;
+	delete[]efficiency;
+
+	MSG("To end, press any key");
+	_getch();
+
+	return EXIT_SUCCESS;
 }
+#endif // SOFT_GRADER

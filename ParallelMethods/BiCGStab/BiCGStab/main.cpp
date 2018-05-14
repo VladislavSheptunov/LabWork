@@ -268,6 +268,125 @@ void SLE_Solver_CRS_BICG(CRSMatrix &A, double *b, double eps, int max_iter, doub
 }
 
 #if !SOFT_GRADER
+static inline void mul_CRSMatrix_on_vector_line(const CRSMatrix &crs_matrix, const double *vector, double *result_vector) {
+	int j1 = 0, j2 = 0;
+	memset(result_vector, 0, SIZE_VECTOR(crs_matrix.n));
+	for (int i = 0; i < crs_matrix.n; ++i) {
+		j1 = crs_matrix.rowPtr[i];
+		j2 = crs_matrix.rowPtr[i + 1];
+		for (int j = j1; j < j2; ++j)
+			result_vector[i] += crs_matrix.val[j] * vector[crs_matrix.colIndex[j]];
+	}
+}
+
+static inline double mul_vector_on_vector_line(double *vector_1, double *vector_2, int size_vector) {
+	double sum = 0.0;
+	for (int i = 0; i < size_vector; i++)
+		sum += vector_1[i] * vector_2[i];
+	return sum;
+}
+
+void SLE_Solver_CRS_BICG_line(CRSMatrix &A, double *b, double eps, int max_iter, double *x, int &count) {
+	// -- To speed up the calculations
+	CRSMatrix At;
+	init_crs_matrix(At, A.n, A.nz);
+	transpose_CRSMatrix(A, At);
+	// --
+
+	// -- Arrays for storing discrepancies current and next approximation
+	double *R = init_vector(A.n);
+	double *biR = init_vector(A.n);
+	double *nR = init_vector(A.n);
+	double *nbiR = init_vector(A.n);
+	// --
+
+	// -- Arrays for storing the current and next vector method step directions
+	double *P = init_vector(A.n);
+	double *biP = init_vector(A.n);
+	double *nP = init_vector(A.n);
+	double *nbiP = init_vector(A.n);
+	// --
+
+	// -- Arrays for storing the product of a matrix by a vector directions and bi-conjugate to it
+	double *multAP = init_vector(A.n);
+	double *multAtbiP = init_vector(A.n);
+	// --
+
+	// -- Coefficients of computational formulas
+	double alfa, beta;
+	// --
+
+	// --Numerator and denominator of beta and alfa coefficients
+	double numerator, denominator;
+	// --
+
+	// -- Variables to calculate the accuracy of the current approximation
+	double check, norm;
+	// --
+	norm = sqrt(mul_vector_on_vector_line(b, b, A.n));
+
+	int i; // Counter
+
+		   // -- Initialization
+	std::fill_n(x, A.n, 1.0); // The initial approximation
+	mul_CRSMatrix_on_vector_line(A, x, multAP);
+
+	for (i = 0; i < A.n; i++)
+		R[i] = biR[i] = P[i] = biP[i] = b[i] - multAP[i];
+
+	// --
+
+	// ----------------- ALGORITHM ----------------- //
+	for (count = 0; count < max_iter; count++) {
+
+		mul_CRSMatrix_on_vector_line(A, P, multAP);
+		mul_CRSMatrix_on_vector_line(At, biP, multAtbiP);
+		numerator = mul_vector_on_vector_line(biR, R, A.n);
+		denominator = mul_vector_on_vector_line(biP, multAP, A.n);
+		alfa = numerator / denominator;
+
+		for (i = 0; i < A.n; i++) {
+			nR[i] = R[i] - alfa * multAP[i];
+			nbiR[i] = biR[i] - alfa * multAtbiP[i];
+		}
+
+		denominator = numerator;
+		numerator = mul_vector_on_vector_line(nbiR, nR, A.n);
+		beta = numerator / denominator;
+
+		for (i = 0; i < A.n; i++) {
+			nP[i] = nR[i] + beta * P[i];
+			nbiP[i] = nbiR[i] + beta * biP[i];
+		}
+
+		check = sqrt(mul_vector_on_vector_line(R, R, A.n)) / norm;
+		if (check < eps)
+			break;
+
+		for (i = 0; i < A.n; i++) {
+			x[i] += alfa * P[i];
+		}
+
+		std::swap(R, nR);
+		std::swap(P, nP);
+		std::swap(biR, nbiR);
+		std::swap(biP, nbiP);
+	}
+	// -------------------------------------------- //
+
+	clear_crs_matrix(At);
+	CLEAR(R);
+	CLEAR(biR);
+	CLEAR(nR);
+	CLEAR(nbiR);
+	CLEAR(P);
+	CLEAR(biP);
+	CLEAR(nP);
+	CLEAR(nbiP);
+	CLEAR(multAP);
+	CLEAR(multAtbiP);
+}
+
 static inline void show_crs_matrix(const CRSMatrix &crs_matrix, const char* msg) {
 	MSG(msg);
 	for (int i = 0; i < crs_matrix.m; i++) {
@@ -297,8 +416,8 @@ static inline void check_result(const CRSMatrix &crs_matrix, double *b, double *
 		}
 	}
 
-	if (crs_matrix.n <= 5) {
-		show_crs_matrix(crs_matrix, "CRS MATRIX A:");
+	if (crs_matrix.n <= 8) {
+		show_crs_matrix(crs_matrix, "The sourse Matrix:");
 		show_vector(b, crs_matrix.n, "Vector b:");
 		show_vector(x, crs_matrix.n, "Vector x:");
 		if (!fcheck)
@@ -314,7 +433,7 @@ static inline void check_result(const CRSMatrix &crs_matrix, double *b, double *
 }
 
 int main(int argc, char **argv) {
-	int size = 5,
+	int size = 8,
 		max_iter = 10,
 		count = 10;
 	double eps = 0.001;
