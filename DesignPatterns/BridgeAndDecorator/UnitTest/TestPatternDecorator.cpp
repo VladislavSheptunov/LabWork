@@ -49,6 +49,9 @@ namespace UnitTestPatternDecorator {
 			IMatrix *m = new LowerTriangularMatrix(matrix, drawer);
 			m = new MinorMatrix(m, drawer, minor_idexs);
 
+			double a = m->getValue(1, 1);
+			a++;
+
 			Assert::AreEqual(matrix_expected[2 + 2 * size], m->getValue(1, 1), L"Error! Invalid value");
 
 			delete m;

@@ -149,9 +149,7 @@ class MinorMatrix : public IMatrix {
 public:
 	MinorMatrix(IMatrix *component, IMatrixDrawer *drawer, const std::vector<int> &minor_idexs) : IMatrix(drawer) {
 		this->items.resize(minor_idexs.size());
-		for (size_t i = 0; i < minor_idexs.size(); ++i)
-			items[i] = minor_idexs[i];
-
+		std::copy(minor_idexs.begin(), minor_idexs.end(), this->items.begin());
 		std::sort(items.begin(), items.end(), [](int i, int j) { return (i < j); });
 
 		this->component = component;

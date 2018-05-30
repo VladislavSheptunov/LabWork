@@ -15,15 +15,18 @@ namespace UnitTestPatternCommand
 			vector.resize(size);
 			vector_expected.resize(size);
 			std::srand(unsigned(std::time(0)));
-			std::generate(vector_expected.begin(), vector_expected.end(), [&]() { return std::rand(); });
+			std::generate(vector_expected.begin(), vector_expected.end(), [=]() { return std::rand(); });
 			vector = vector_expected;
 		}
 
-		~VectorCommandTest() { }
+		~VectorCommandTest() { 
+			if (cmd != nullptr)
+				delete cmd;
+		}
 		
 		TEST_METHOD(test_deleteBackElement) {
 			try {
-				CMDDeleteBackElement* cmd = new CMDDeleteBackElement(vector);
+				cmd = new CMDDeleteBackElement(vector);
 				cmd->execute();
 
 				Assert::IsTrue(vector != vector_expected, L"Error! Vectors are equal");
@@ -38,7 +41,7 @@ namespace UnitTestPatternCommand
 		TEST_METHOD(test_insertBackElement) {
 			value = 500;
 			try {
-				CMDInsertBackElement* cmd = new CMDInsertBackElement(vector, value);
+				cmd = new CMDInsertBackElement(vector, value);
 				cmd->execute();
 
 				Assert::IsTrue(vector.size() == vector_expected.size() + 1, L"Error! Does not correspond to the sizes");
@@ -53,7 +56,7 @@ namespace UnitTestPatternCommand
 		TEST_METHOD(test_setElement) {
 			value = 750, index = 1;
 			try {
-				CMDSetElement* cmd = new CMDSetElement(vector, value, index);
+				cmd = new CMDSetElement(vector, value, index);
 				cmd->execute();
 
 				Assert::IsTrue(vector.size() == vector_expected.size(), L"Error! Does not correspond to the sizes");
@@ -67,8 +70,8 @@ namespace UnitTestPatternCommand
 
 		TEST_METHOD(test_undo) {
 			value = 350, index = 1;
-			try {
-				CMDSetElement* cmd = new CMDSetElement(vector, value, index);
+			try {;
+				cmd = new CMDSetElement(vector, value, index);
 				cmd->execute();
 
 				Assert::IsTrue(vector.size() == vector_expected.size(), L"Error! Does not correspond to the sizes");
@@ -87,7 +90,7 @@ namespace UnitTestPatternCommand
 		TEST_METHOD(test_redo) {
 			value = 350;
 			try {
-				CMDInsertBackElement* cmd = new CMDInsertBackElement(vector, value);
+				cmd = new CMDInsertBackElement(vector, value);
 				cmd->execute();
 
 				Assert::IsTrue(vector.size() == vector_expected.size() + 1, L"Error! Does not correspond to the sizes");
@@ -110,6 +113,7 @@ namespace UnitTestPatternCommand
 		}
 
 	private:
+		Command *cmd = nullptr;
 		int32_t size, index, value;
 		std::vector<int32_t> vector;
 		std::vector<int32_t> vector_expected;
