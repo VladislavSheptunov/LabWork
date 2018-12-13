@@ -92,6 +92,12 @@ static inline void multiplication_matrix(
   }
 }
 
+/* =============================================================================== /
+                                Optimization steps
+   1. Using Intel Commpiller
+   2. Swap cycles
+/  =============================================================================== */
+
 static inline void optimal_multiplication_matrix(
   double *res_matrix,
   const double *left_matrix,
@@ -101,14 +107,10 @@ static inline void optimal_multiplication_matrix(
 
   assert(res_matrix && left_matrix && right_matrix);
 
-  for (int i = 0; i < matrix_size; ++i) {
-    for (int j = 0; j < matrix_size; ++j) {
-      *(res_matrix + i * matrix_size + j) = 0;
-      for (int k = 0; k < matrix_size; ++k) {
+  for (int i = 0; i < matrix_size; ++i)
+    for (int k = 0; k < matrix_size; ++k)
+      for (int j = 0; j < matrix_size; ++j)
         *(res_matrix + i * matrix_size + j) += (*(left_matrix + i * matrix_size + k) *  *(right_matrix + k * matrix_size + j));
-      }
-    }
-  }
 }
 
 #endif //MATRIX_ALGORITHMS

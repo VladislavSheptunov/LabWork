@@ -452,7 +452,7 @@ void Cholesky_Decomposition(double *A, double *L, int n) {
 #if !SOFT_GRADER
 int main(int argc, char** argv) {
 	// Starting from the debug
-	std::vector<int> arr_matrix_size = {250, 500, 1000, 1500, 2000, 2500, 3000};
+  std::vector<int> arr_matrix_size = { 250, 500, 1000, };// 1500, 2000, 2500, 3000};
 	//std::vector<int> arr_matrix_size = { 5, 10 };
 	std::vector<int> count_thread;
 	std::vector<double> speedUp;

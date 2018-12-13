@@ -9,6 +9,11 @@
 #include "math.h"
 #include "conio.h"
 
+#include <vector>
+#include <string>
+#include <fstream>
+#include <sstream>
+
 #define MSG(msg)            printf("%s\n", ##msg)
 
 #define EPS                 0.001
@@ -78,6 +83,41 @@ static inline void show_matrix(const double *matrix, int matrix_size, const char
     printf(" \n");
   }
   printf("\n");
+}
+
+static inline void print_result_experiment_to_file(
+  const std::vector<int> &size_matrix, 
+  const std::vector<double> &run_time_before_opt,
+  const std::vector<double> &run_time_after_opt,
+  const std::string &file_name
+) {
+  std::ofstream tbl_speed_up;
+
+  //system("md \"../ExperimentalResults\"");
+
+  tbl_speed_up.open("../ExperimentalResults/" + file_name + ".csv");
+
+  tbl_speed_up << "Run time\\Matrix size;";
+  for (auto it : size_matrix)
+    tbl_speed_up << std::to_string(it) << ";";
+  tbl_speed_up << "\n";
+
+  tbl_speed_up << "Not optimization algorithm;";
+  for (auto it : run_time_before_opt)
+    tbl_speed_up << std::to_string(it) << ";";
+  tbl_speed_up << "\n";
+
+  tbl_speed_up << "Optimized algorithm;";
+  for (auto it : run_time_after_opt)
+    tbl_speed_up << std::to_string(it) << ";";
+  tbl_speed_up << "\n";
+
+  tbl_speed_up << "SpeedUp;";
+  for (int it = 0; it < run_time_before_opt.size(); it++)
+    tbl_speed_up << std::to_string(run_time_before_opt[it] / run_time_after_opt[it]) << ";";
+  tbl_speed_up << "\n";
+
+  tbl_speed_up.close();
 }
 
 extern void inverse_matrix(double *matrix, int matrix_size);
