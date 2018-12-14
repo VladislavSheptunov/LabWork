@@ -46,7 +46,7 @@ int main(int argc, char** argv) {
     CLEAR_MATRIX(res_matrix);
   }
 
-  print_result_experiment_to_file(arr_matrix_size, run_time_before_opt, run_time_after_opt, "ÎptStep2");
+  print_result_experiment_to_file(arr_matrix_size, run_time_before_opt, run_time_after_opt, "ÎptStep3");
 
   MSG("\n\nTo end, press any key");
   _getch();

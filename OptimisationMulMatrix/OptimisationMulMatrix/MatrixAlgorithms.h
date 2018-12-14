@@ -6,6 +6,15 @@
 
 #include "Helper.h"
 
+// Pre-defined C/C++ Compiler Macros
+#ifdef __INTEL_COMPILER
+  #include "immintrin.h"
+
+  #define VECTORIZATION 1
+#else
+  #define VECTORIZATION 0
+#endif
+
 static inline void transposition_matrix(double *matrix, int matrix_size) {
   assert(matrix);
   for (int i = 0; i < matrix_size; i++) {
@@ -96,6 +105,7 @@ static inline void multiplication_matrix(
                                 Optimization steps
    1. Using Intel Commpiller
    2. Swap cycles
+   3. Vectorizing Using AVX Intrinsics
 /  =============================================================================== */
 
 static inline void optimal_multiplication_matrix(
@@ -107,10 +117,23 @@ static inline void optimal_multiplication_matrix(
 
   assert(res_matrix && left_matrix && right_matrix);
 
-  for (int i = 0; i < matrix_size; ++i)
-    for (int k = 0; k < matrix_size; ++k)
+  for (int i = 0; i < matrix_size; ++i) {
+    for (int k = 0; k < matrix_size; ++k) {
+#if VECTORIZATION
+      __m256d v_res_matrix = _mm256_setzero_pd();
+      for (int j = 0; j < matrix_size; j += 8) {
+        __m256d v_left_matrix = _mm256_broadcast_sd(left_matrix + i * matrix_size + k);
+        __m256d v_right_matrix = _mm256_loadu_pd(right_matrix + k * matrix_size + j);
+        __m256d v_tmp_matrix = _mm256_or_pd(v_left_matrix, v_right_matrix);
+        v_res_matrix = _mm256_add_pd(v_res_matrix, v_tmp_matrix);
+        _mm256_store_pd(res_matrix + i * matrix_size + j, v_res_matrix);
+      }
+#else
       for (int j = 0; j < matrix_size; ++j)
         *(res_matrix + i * matrix_size + j) += (*(left_matrix + i * matrix_size + k) *  *(right_matrix + k * matrix_size + j));
-}
+#endif
+      }
+    }
+  }
 
 #endif //MATRIX_ALGORITHMS
