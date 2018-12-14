@@ -124,6 +124,7 @@
   <ItemGroup>
     <ClInclude Include="Helper.h" />
     <ClInclude Include="MatrixAlgorithms.h" />
+    <ClInclude Include="Settings.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

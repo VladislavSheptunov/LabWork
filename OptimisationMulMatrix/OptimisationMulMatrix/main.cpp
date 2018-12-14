@@ -1,8 +1,10 @@
 #include "windows.h"
 #include "MatrixAlgorithms.h"
 
-#define SIZE_MATRIX_SHOW  5
-#define RANDOM_RANGE      5.0
+#define SIZE_MATRIX_SHOW    5
+#define RANDOM_RANGE        5.0
+
+#define FILE_RESULT_LAUNCH  "ÎptResult"
 
 int main(int argc, char** argv) {
   double start = 0;
@@ -41,12 +43,12 @@ int main(int argc, char** argv) {
     printf("Speedup: %.5f\n", run_time_before_opt[count_it] / run_time_after_opt[count_it]);
     ++count_it;
 
-    CLEAR_MATRIX(left_matrix);
-    CLEAR_MATRIX(rigth_matrix);
-    CLEAR_MATRIX(res_matrix);
+    DESTROY_MATRIX(left_matrix);
+    DESTROY_MATRIX(rigth_matrix);
+    DESTROY_MATRIX(res_matrix);
   }
 
-  print_result_experiment_to_file(arr_matrix_size, run_time_before_opt, run_time_after_opt, "ÎptStep3");
+  print_result_experiment_to_file(arr_matrix_size, run_time_before_opt, run_time_after_opt, "ÎptResult");
 
   MSG("\n\nTo end, press any key");
   _getch();

@@ -1,7 +1,5 @@
-#ifndef HELPER_H
-#define HELPER_H
-
-//#include "MatrixAlgorithms.h"
+#ifndef _HELPER_H_
+#define _HELPER_H_
 
 #include "stdio.h"
 #include "time.h"
@@ -14,19 +12,22 @@
 #include <fstream>
 #include <sstream>
 
-#define MSG(msg)            printf("%s\n", ##msg)
+#include "Settings.h"
 
-#define EPS                 0.001
-#define IS_NOT_EQUAL(x, y)  ( fabs( (x) - (y)) > (EPS) ? true : false )
-#define RANDOM(range)       ( (double)rand() / RAND_MAX * ( range ) ) // (double)(rand())/RAND_MAX*(max - min) + min;
-//#define SIGN(x)             ( (x) >= 0 ? 1 : -1)
+#define MSG(msg)                      printf("%s\n", ##msg)
 
-#define SIZE_MATRIX(size)           ( (size) * (size) )
-#define SIZE_MATRIX_IN_BYTES(size)  ( SIZE_MATRIX(size) * sizeof(double) )
+#define EPS                           0.001
+#define IS_NOT_EQUAL(x, y)            ( fabs( (x) - (y)) > (EPS) ? true : false )
+#define RANDOM(range)                 ( (double)rand() / RAND_MAX * ( range ) )
+//#define RANDOM(min, max)            ( (double)(rand())/RAND_MAX*( ( max ) - ( min) ) + ( min ) )
 
-#define CLEAR_MATRIX(ptr)             assert(ptr); free((ptr))
+#define SIZE_MATRIX(size)             ( (size) * (size) )
+#define SIZE_MATRIX_IN_BYTES(size)    ( SIZE_MATRIX(size) * sizeof(double) )
 
-#define MATRIX_MEMCPY(dst, src, size) memcpy(dst, src, SIZE_MATRIX_IN_BYTES(size));     
+#define DESTROY_MATRIX(ptr)           destroy_matrix(ptr);
+#define CLEAR_MATRIX(ptr)             memset(matrix, 0, SIZE_MATRIX_IN_BYTES(matrix_size));
+
+#define MEMCPY_MATRIX(dst, src, size) memcpy(dst, src, SIZE_MATRIX_IN_BYTES(size));     
 
 static inline void swap(double *left, double *right) {
   double tmp;
@@ -50,9 +51,27 @@ static inline void swap_str(double *left, double *right, int str_size) {
 }
 
 static inline double* init_matrix(int matrix_size) {
+#ifdef ALIGNMENT
+  // 64 byte alignment
+  double *matrix = (double*)_mm_malloc(SIZE_MATRIX_IN_BYTES(matrix_size), 64);
+  assert(matrix);
+
+  CLEAR_MATRIX(matrix);
+#else
   double *matrix = (double*)calloc(SIZE_MATRIX(matrix_size), sizeof(double));
   assert(matrix);
+#endif
+  
   return matrix;
+}
+
+static inline void destroy_matrix(double *matrix) {
+  assert(matrix);
+#ifdef ALIGNMENT
+  _mm_free(matrix);
+#else
+   free(matrix);
+#endif // __INTEL_COMPILER
 }
 
 static inline void fill_matrix(double *matrix, int matrix_size, double range) {
@@ -93,7 +112,7 @@ static inline void print_result_experiment_to_file(
 ) {
   std::ofstream tbl_speed_up;
 
-  //system("md \"../ExperimentalResults\"");
+  system("md \"../ExperimentalResults\"");
 
   tbl_speed_up.open("../ExperimentalResults/" + file_name + ".csv");
 
@@ -143,7 +162,7 @@ static inline void check_result_mul_matrix(
   double *E = init_matrix(matrix_size);
   double *A_mul_E = inverseB;
 
-  MATRIX_MEMCPY(inverseB, B, matrix_size);
+  MEMCPY_MATRIX(inverseB, B, matrix_size);
 
   inverse_matrix(inverseB, matrix_size);
 
@@ -173,8 +192,8 @@ static inline void check_result_mul_matrix(
   else
     MSG("ERROR");
 
-  CLEAR_MATRIX(E);
-  CLEAR_MATRIX(inverseB);
+  DESTROY_MATRIX(E);
+  DESTROY_MATRIX(inverseB);
 }
 
-#endif //HELPER_H
+#endif //_HELPER_H_
